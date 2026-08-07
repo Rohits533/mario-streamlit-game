@@ -1,13 +1,13 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Infinite Realistic Platformer",
+    page_title="Next-Gen Realistic Platformer",
     page_icon="🍄",
     layout="centered"
 )
 
-st.title("🍄 Infinite Realistic Platformer")
-st.write("Endless scrolling platformer with 3D-styled graphics, dynamic camera, and procedural infinite generation!")
+st.title("🍄 Next-Gen Realistic Platformer")
+st.write("Featuring dynamic vector shading, lighting reflections, particle bursts, and infinite procedural landscapes.")
 
 game_html = """
 <!DOCTYPE html>
@@ -17,27 +17,27 @@ game_html = """
     <style>
         body {
             margin: 0;
-            background: #111;
+            background: #0a0a0c;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             color: white;
         }
         .game-container {
             text-align: center;
         }
         canvas {
-            border: 4px solid #333;
-            background: linear-gradient(to bottom, #20b2aa, #87ceeb, #e0f6ff);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-            border-radius: 6px;
+            border: 4px solid #222;
+            background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d);
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            border-radius: 8px;
         }
         .instructions {
-            margin-top: 10px;
+            margin-top: 12px;
             font-size: 14px;
-            color: #ddd;
+            color: #bbb;
             letter-spacing: 0.5px;
         }
     </style>
@@ -45,7 +45,7 @@ game_html = """
 <body>
 
 <div class="game-container">
-    <canvas id="gameCanvas" width="800" height="450"></canvas>
+    <canvas id="gameCanvas" width="850" height="480"></canvas>
     <div class="instructions">
         Controls: <strong>Arrow Left / Right</strong> to Run | <strong>Arrow Up</strong> or <strong>Spacebar</strong> to Jump
     </div>
@@ -61,38 +61,40 @@ game_html = """
 
     let gameState = 'ENTERING';
     let entryTimer = 0;
-
     let cameraX = 0;
 
     const player = {
         x: 100,
-        y: 340,
-        width: 32,
-        height: 48,
+        y: 350,
+        width: 34,
+        height: 52,
         vx: 0,
         vy: 0,
-        speed: 5,
-        jumpPower: -11.5,
-        gravity: 0.55,
+        speed: 5.5,
+        jumpPower: -12.5,
+        gravity: 0.58,
         grounded: false,
-        facing: 'right'
+        facing: 'right',
+        animFrame: 0
     };
 
-    // Infinite procedural world tracking
     let platforms = [
-        { x: 0, y: 390, width: 1200, height: 60, type: 'ground' },
-        { x: 300, y: 280, width: 140, height: 24, type: 'brick' },
-        { x: 550, y: 200, width: 160, height: 24, type: 'brick' },
-        { x: 800, y: 270, width: 130, height: 24, type: 'brick' }
+        { x: 0, y: 410, width: 1500, height: 70, type: 'ground' },
+        { x: 350, y: 290, width: 160, height: 26, type: 'brick' },
+        { x: 650, y: 200, width: 180, height: 26, type: 'brick' },
+        { x: 950, y: 270, width: 150, height: 26, type: 'brick' }
     ];
 
     let coins = [
-        { x: 350, y: 235, radius: 12, collected: false, angle: 0 },
-        { x: 610, y: 155, radius: 12, collected: false, angle: 0 },
-        { x: 850, y: 225, radius: 12, collected: false, angle: 0 }
+        { x: 430, y: 240, radius: 13, collected: false, angle: 0 },
+        { x: 740, y: 150, radius: 13, collected: false, angle: 0 },
+        { x: 1025, y: 220, radius: 13, collected: false, angle: 0 }
     ];
 
-    let lastGeneratedX = 1200;
+    // Particle system array for realistic effects (dust, coin sparkles)
+    let particles = [];
+
+    let lastGeneratedX = 1500;
 
     window.addEventListener("keydown", (e) => {
         keys[e.code] = true;
@@ -105,72 +107,82 @@ game_html = """
         keys[e.code] = false;
     });
 
-    function generateInfiniteWorld() {
-        // If player approaches the end of generated map, create more chunks ahead
-        if (player.x + canvas.width > lastGeneratedX - 400) {
-            let chunkX = lastGeneratedX;
-            
-            // Continuous ground segments with gaps or hills
-            platforms.push({ x: chunkX, y: 390, width: 1000, height: 60, type: 'ground' });
+    function spawnParticles(x, y, color, count = 10) {
+        for (let i = 0; i < count; i++) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 6,
+                vy: (Math.random() - 0.5) * 6 - 2,
+                alpha: 1.0,
+                color: color,
+                size: Math.random() * 4 + 2
+            });
+        }
+    }
 
-            // Random floating platforms & coins ahead
-            for (let i = 1; i <= 3; i++) {
-                let pWidth = 120 + Math.random() * 50;
-                let pX = chunkX + i * 300 + Math.random() * 50;
-                let pY = 160 + Math.random() * 140;
+    function generateInfiniteWorld() {
+        if (player.x + canvas.width > lastGeneratedX - 500) {
+            let chunkX = lastGeneratedX;
+            let groundWidth = 1000 + Math.random() * 400;
+            
+            platforms.push({ x: chunkX, y: 410, width: groundWidth, height: 70, type: 'ground' });
+
+            let currentX = chunkX + 200;
+            while (currentX < chunkX + groundWidth - 200) {
+                let pWidth = 130 + Math.random() * 70;
+                let pY = 180 + Math.random() * 160;
                 
-                platforms.push({ x: pX, y: pY, width: pWidth, height: 24, type: 'brick' });
+                platforms.push({ x: currentX, y: pY, width: pWidth, height: 26, type: 'brick' });
+                coins.push({ x: currentX + pWidth / 2, y: pY - 45, radius: 13, collected: false, angle: Math.random() });
                 
-                // Add coin above platform
-                coins.push({ x: pX + pWidth / 2, y: pY - 45, radius: 12, collected: false, angle: Math.random() });
+                currentX += pWidth + 120 + Math.random() * 80;
             }
 
-            lastGeneratedX += 1000;
+            lastGeneratedX += groundWidth;
         }
     }
 
     function update() {
         if (gameState === 'ENTERING') {
-            entryTimer += 0.03;
-            player.y = 390 - 48 - Math.sin(entryTimer * Math.PI) * 70;
-            player.x = 100 + (entryTimer * 10);
+            entryTimer += 0.025;
+            player.y = 410 - 52 - Math.sin(entryTimer * Math.PI) * 90;
+            player.x = 100 + (entryTimer * 12);
             if (entryTimer >= 1) {
                 gameState = 'PLAYING';
-                player.y = 390 - 48;
+                player.y = 410 - 52;
+                spawnParticles(player.x + 17, player.y + 52, '#2ecc71', 15);
             }
             return;
         }
 
-        // Horizontal movement
+        // Horizontal Movement & Animation ticker
         if (keys["ArrowLeft"]) {
             player.vx = -player.speed;
             player.facing = 'left';
+            player.animFrame += 0.2;
         } else if (keys["ArrowRight"]) {
             player.vx = player.speed;
             player.facing = 'right';
+            player.animFrame += 0.2;
         } else {
             player.vx = 0;
+            player.animFrame = 0;
         }
 
         player.x += player.vx;
-        
-        // Prevent walking backwards past camera view
-        if (player.x < cameraX + 20) {
-            player.x = cameraX + 20;
-        }
+        if (player.x < cameraX + 15) player.x = cameraX + 15;
 
-        // Track maximum distance traveled for score/distance meter
         if (player.x > distanceTraveled) {
             distanceTraveled = Math.floor(player.x);
         }
 
-        // Smooth camera follow mechanics
-        let targetCameraX = player.x - 250;
+        let targetCameraX = player.x - 300;
         if (targetCameraX > cameraX) {
-            cameraX += (targetCameraX - cameraX) * 0.1;
+            cameraX += (targetCameraX - cameraX) * 0.12;
         }
 
-        // Gravity & Physics
+        // Physics & Gravity
         player.vy += player.gravity;
         player.y += player.vy;
         player.grounded = false;
@@ -180,9 +192,12 @@ game_html = """
                 player.x < platform.x + platform.width &&
                 player.x + player.width > platform.x &&
                 player.y + player.height >= platform.y &&
-                player.y + player.height - player.vy <= platform.y + 8 &&
+                player.y + player.height - player.vy <= platform.y + 10 &&
                 player.vy >= 0
             ) {
+                if (!player.grounded && player.vy > 4) {
+                    spawnParticles(player.x + 17, platform.y, '#7f8c8d', 6); // Landing dust
+                }
                 player.y = platform.y - player.height;
                 player.vy = 0;
                 player.grounded = true;
@@ -192,62 +207,93 @@ game_html = """
         if ((keys["ArrowUp"] || keys["Space"]) && player.grounded) {
             player.vy = player.jumpPower;
             player.grounded = false;
+            spawnParticles(player.x + 17, player.y + player.height, '#bdc3c7', 8);
         }
 
-        // Coin Collection & Animation
+        // Coin Collection & Sparkle Burst
         coins.forEach(coin => {
-            coin.angle += 0.05;
+            coin.angle += 0.06;
             if (!coin.collected) {
                 let dist = Math.hypot(coin.x - (player.x + player.width / 2), coin.y - (player.y + player.height / 2));
                 if (dist < coin.radius + player.width / 3) {
                     coin.collected = true;
                     score += 100;
+                    spawnParticles(coin.x, coin.y, '#f1c40f', 16);
                 }
             }
         });
 
-        // Procedural generation trigger
+        // Particle updates
+        particles.forEach((p, index) => {
+            p.x += p.vx;
+            p.y += p.vy;
+            p.alpha -= 0.03;
+            if (p.alpha <= 0) particles.splice(index, 1);
+        });
+
         generateInfiniteWorld();
 
-        // Fall out of bounds check (Respawn checkpoint ahead)
         if (player.y > canvas.height) {
-            player.x = cameraX + 100;
-            player.y = 340;
+            player.x = cameraX + 80;
+            player.y = 350;
             player.vy = 0;
-            score = Math.max(0, score - 150);
+            score = Math.max(0, score - 200);
             gameState = 'ENTERING';
             entryTimer = 0;
+            spawnParticles(player.x, player.y, '#e74c3c', 20);
         }
     }
 
-    function drawRealisticPlayer(x, y, w, h, facing) {
+    function drawRealisticPlayer(x, y, w, h, facing, frame) {
         ctx.save();
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        
+        // Soft ground shadow with dynamic scaling based on jump height
+        let shadowWidth = Math.max(10, w - Math.abs(player.vy) * 2);
+        ctx.fillStyle = "rgba(0,0,0,0.4)";
         ctx.beginPath();
-        ctx.ellipse(x + w/2, y + h, w/2, 6, 0, 0, Math.PI * 2);
+        ctx.ellipse(x + w/2, 410, shadowWidth/2, 5, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        let bodyGrad = ctx.createLinearGradient(x, y + h/2, x + w, y + h);
-        bodyGrad.addColorStop(0, '#1a5276');
-        bodyGrad.addColorStop(1, '#2980b9');
-        ctx.fillStyle = bodyGrad;
-        ctx.fillRect(x + 4, y + h/2, w - 8, h/2);
+        // Bounce effect simulation using animFrame
+        let bounce = player.grounded ? Math.sin(frame) * 2 : 0;
+        let drawY = y + bounce;
 
-        let shirtGrad = ctx.createLinearGradient(x, y + h/3, x + w, y + h/2);
-        shirtGrad.addColorStop(0, '#c0392b');
+        // Overalls (Multi-stop smooth shading)
+        let overallsGrad = ctx.createLinearGradient(x, drawY + h/2, x + w, drawY + h);
+        overallsGrad.addColorStop(0, '#154360');
+        overallsGrad.addColorStop(0.5, '#1b4f72');
+        overallsGrad.addColorStop(1, '#2471a3');
+        ctx.fillStyle = overallsGrad;
+        ctx.fillRect(x + 5, drawY + h/2, w - 10, h/2 - 2);
+
+        // Straps & Buttons
+        ctx.fillStyle = '#f1c40f'; // Gold buttons
+        ctx.fillRect(x + 8, drawY + h/2 + 4, 4, 4);
+        ctx.fillRect(x + w - 12, drawY + h/2 + 4, 4, 4);
+
+        // Shirt
+        let shirtGrad = ctx.createLinearGradient(x, drawY + h/3, x + w, drawY + h/2);
+        shirtGrad.addColorStop(0, '#922b21');
         shirtGrad.addColorStop(1, '#e74c3c');
         ctx.fillStyle = shirtGrad;
-        ctx.fillRect(x + 6, y + h/3, w - 12, h/3);
+        ctx.fillRect(x + 7, drawY + h/3, w - 14, h/3);
 
-        ctx.fillStyle = '#c0392b';
-        ctx.fillRect(x + (facing === 'right' ? 8 : 2), y + 2, w - 8, 12);
+        // Head / Cap with realistic curvature highlight
+        let capGrad = ctx.createLinearGradient(x, drawY, x, drawY + 14);
+        capGrad.addColorStop(0, '#f1948a');
+        capGrad.addColorStop(1, '#c0392b');
+        ctx.fillStyle = capGrad;
+        ctx.fillRect(x + (facing === 'right' ? 8 : 2), drawY, w - 8, 13);
+        
+        // Cap Visor
         ctx.fillStyle = '#922b21';
-        ctx.fillRect(x + (facing === 'right' ? w - 10 : 2), y + 6, 10, 4);
+        ctx.fillRect(x + (facing === 'right' ? w - 10 : 2), drawY + 5, 12, 4);
 
+        // Face & Detailed Moustache
         ctx.fillStyle = '#f5b041';
-        ctx.fillRect(x + (facing === 'right' ? 12 : 6), y + 14, 14, 10);
-        ctx.fillStyle = '#512e5f';
-        ctx.fillRect(x + (facing === 'right' ? 14 : 4), y + 20, 12, 4);
+        ctx.fillRect(x + (facing === 'right' ? 13 : 5), drawY + 13, 14, 11);
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(x + (facing === 'right' ? 14 : 4), drawY + 20, 14, 5);
 
         ctx.restore();
     }
@@ -256,50 +302,54 @@ game_html = """
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         ctx.save();
-        // Apply camera scroll translation
         ctx.translate(-cameraX, 0);
 
-        // Parallax background clouds (moves slower than camera)
-        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
-        let cloudOffset = cameraX * 0.3;
-        for (let i = -1; i < 5; i++) {
-            let cx = i * 400 + (cloudOffset % 400);
+        // Dynamic Parallax Background Mountains / Hills
+        ctx.fillStyle = "rgba(44, 62, 80, 0.25)";
+        let hillOffset = cameraX * 0.2;
+        for (let i = -1; i < 6; i++) {
+            let hx = i * 500 - (hillOffset % 500);
             ctx.beginPath();
-            ctx.arc(cx + 150, 80, 30, 0, Math.PI * 2);
-            ctx.arc(cx + 180, 75, 40, 0, Math.PI * 2);
-            ctx.arc(cx + 210, 85, 25, 0, Math.PI * 2);
+            ctx.moveTo(hx, 410);
+            ctx.lineTo(hx + 250, 220);
+            ctx.lineTo(hx + 500, 410);
             ctx.fill();
         }
 
-        // Draw Platforms
+        // Platforms with High-End Textures & Top Lighting Bevels
         platforms.forEach(platform => {
-            // Only render platforms visible on screen for optimization
             if (platform.x + platform.width >= cameraX && platform.x <= cameraX + canvas.width) {
                 if (platform.type === 'ground') {
                     let groundGrad = ctx.createLinearGradient(0, platform.y, 0, platform.y + platform.height);
-                    groundGrad.addColorStop(0, '#27ae60');
-                    groundGrad.addColorStop(0.15, '#784212');
-                    groundGrad.addColorStop(1, '#4a2306');
+                    groundGrad.addColorStop(0, '#1e8449'); // Vibrant Moss
+                    groundGrad.addColorStop(0.1, '#27ae60');
+                    groundGrad.addColorStop(0.2, '#6e2c00'); // Rich Soil
+                    groundGrad.addColorStop(1, '#2b1b0e');
                     ctx.fillStyle = groundGrad;
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
                     
-                    ctx.fillStyle = '#2ecc71';
-                    ctx.fillRect(platform.x, platform.y, platform.width, 6);
+                    // Glossy top neon highlight border
+                    ctx.fillStyle = '#58d68d';
+                    ctx.fillRect(platform.x, platform.y, platform.width, 4);
                 } else {
                     let brickGrad = ctx.createLinearGradient(platform.x, platform.y, platform.x, platform.y + platform.height);
-                    brickGrad.addColorStop(0, '#e59866');
-                    brickGrad.addColorStop(1, '#ba4a00');
+                    brickGrad.addColorStop(0, '#dc7633');
+                    brickGrad.addColorStop(1, '#935116');
                     ctx.fillStyle = brickGrad;
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
 
-                    ctx.strokeStyle = '#78281f';
+                    // Beveled Edge Light
+                    ctx.fillStyle = '#edbb99';
+                    ctx.fillRect(platform.x, platform.y, platform.width, 3);
+                    
+                    ctx.strokeStyle = '#512e5f';
                     ctx.lineWidth = 2;
                     ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
                 }
             }
         });
 
-        // Draw Coins
+        // Glowing 3D Coins
         coins.forEach(coin => {
             if (!coin.collected && coin.x >= cameraX - 50 && coin.x <= cameraX + canvas.width + 50) {
                 ctx.save();
@@ -307,15 +357,16 @@ game_html = """
                 let scaleX = Math.cos(coin.angle);
                 ctx.scale(scaleX, 1);
 
-                let coinGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, coin.radius);
-                coinGrad.addColorStop(0, '#f9e79f');
-                coinGrad.addColorStop(0.7, '#f1c40f');
+                let coinGrad = ctx.createRadialGradient(0, 0, 1, 0, 0, coin.radius);
+                coinGrad.addColorStop(0, '#fef9e7');
+                coinGrad.addColorStop(0.5, '#f1c40f');
                 coinGrad.addColorStop(1, '#b7950b');
 
                 ctx.fillStyle = coinGrad;
                 ctx.beginPath();
                 ctx.arc(0, 0, coin.radius, 0, Math.PI * 2);
                 ctx.fill();
+                
                 ctx.strokeStyle = '#7d6608';
                 ctx.lineWidth = 2;
                 ctx.stroke();
@@ -324,20 +375,32 @@ game_html = """
             }
         });
 
-        // Draw Player
-        drawRealisticPlayer(player.x, player.y, player.width, player.height, player.facing);
+        // Render Particle Effects
+        particles.forEach(p => {
+            ctx.save();
+            ctx.globalAlpha = p.alpha;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        });
+
+        // Draw Player Character
+        drawRealisticPlayer(player.x, player.y, player.width, player.height, player.facing, player.animFrame);
 
         ctx.restore();
 
-        // Draw Fixed HUD / UI (Score & Distance Tracking)
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        ctx.fillRect(15, 15, 260, 45);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
-        ctx.strokeRect(15, 15, 260, 45);
+        // High-Tech Modern HUD Glassmorphism Display
+        ctx.fillStyle = "rgba(15, 15, 20, 0.75)";
+        ctx.fillRect(20, 20, 310, 50);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(20, 20, 310, 50);
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 16px 'Segoe UI'";
-        ctx.fillText("SCORE: " + score + " | DIST: " + distanceTraveled + "m", 25, 43);
+        ctx.font = "bold 15px 'Segoe UI'";
+        ctx.fillText("SCORE: " + score + "   |   DIST: " + distanceTraveled + "m", 35, 51);
     }
 
     function loop() {
@@ -353,4 +416,4 @@ game_html = """
 </html>
 """
 
-st.components.v1.html(game_html, height=520, scrolling=False)
+st.components.v1.html(game_html, height=530, scrolling=False)
