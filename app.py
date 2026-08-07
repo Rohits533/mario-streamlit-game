@@ -1,7 +1,7 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Super Mario: Ultimate HD Deluxe v2",
+    page_title="Super Mario: Infinite Deluxe Ultimate",
     page_icon="🍄",
     layout="centered"
 )
@@ -9,7 +9,7 @@ st.set_page_config(
 st.markdown("""
 <style>
     .stApp {
-        background-color: #08080c;
+        background-color: #050508;
         color: white;
     }
     .arcade-header {
@@ -23,7 +23,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.markdown("<h1 class='arcade-header'>🍄 SUPER MARIO: NEXT-GEN HD DELUXE 🍄</h1>", unsafe_allow_html=True)
+st.markdown("<h1 class='arcade-header'>🍄 SUPER MARIO: ULTIMATE INFINITE DELUXE 🍄</h1>", unsafe_allow_html=True)
 
 game_html = """
 <!DOCTYPE html>
@@ -33,7 +33,7 @@ game_html = """
     <style>
         body {
             margin: 0;
-            background: #08080c;
+            background: #050508;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -49,8 +49,8 @@ game_html = """
         }
         canvas {
             border: 4px solid #fff;
-            background: linear-gradient(to bottom, #4a90e2 0%, #87ceeb 75%, #e0f7fa 100%);
-            box-shadow: 0 0 40px rgba(74, 144, 226, 0.7);
+            background: linear-gradient(to bottom, #2b6cb0 0%, #63b3ed 70%, #e2e8f0 100%);
+            box-shadow: 0 0 50px rgba(43, 108, 176, 0.8);
             image-rendering: pixelated;
             image-rendering: crisp-edges;
         }
@@ -59,9 +59,9 @@ game_html = """
             display: flex;
             justify-content: space-between;
             width: 768px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
-            background: rgba(20, 20, 30, 0.95);
+            background: rgba(15, 15, 25, 0.95);
             padding: 8px 12px;
             border: 2px solid #555;
             box-sizing: border-box;
@@ -83,35 +83,53 @@ game_html = """
             transform: translateY(2px);
             box-shadow: 0 2px #990000;
         }
-        #storeModal {
+        #storeModal, #customMakerModal {
             display: none;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            width: 560px;
+            width: 580px;
             background: rgba(10, 10, 18, 0.98);
             border: 4px solid #f1c40f;
             padding: 20px;
             z-index: 10;
-            box-shadow: 0 0 70px rgba(241, 196, 15, 0.8);
+            box-shadow: 0 0 80px rgba(241, 196, 15, 0.8);
             text-align: left;
             border-radius: 6px;
-            max-height: 400px;
+            max-height: 420px;
             overflow-y: auto;
         }
         .store-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
             margin-top: 15px;
         }
         .store-item {
             background: #161622;
             border: 2px solid #333;
-            padding: 10px;
+            padding: 8px;
             text-align: center;
             border-radius: 4px;
+        }
+        .form-control-group {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .form-control-group label {
+            font-size: 11px;
+            color: #f1c40f;
+        }
+        .form-control-group input, .form-control-group select {
+            background: #222;
+            color: white;
+            border: 1px solid #555;
+            padding: 5px;
+            font-family: 'Courier New';
+            border-radius: 3px;
         }
     </style>
 </head>
@@ -121,62 +139,92 @@ game_html = """
     <canvas id="gameCanvas" width="768" height="432"></canvas>
     
     <div class="hud-panel">
-        <div>CONTROLS: ARROWS / SPACE / SKILL</div>
+        <div>KEYS: ARROWS / SPACE / X (SKILL)</div>
         <div>
-            <button class="btn-arcade" onclick="openStore()">🍄 EPIC SHOP & ABILITIES</button>
+            <button class="btn-arcade" onclick="openStore()" style="background:#27ae60;">SHOP</button>
+            <button class="btn-arcade" onclick="openCustomMaker()" style="background:#2980b9;">CUSTOM BUILDER</button>
             <button class="btn-arcade" onclick="togglePause()" id="pauseBtn">PAUSE</button>
         </div>
     </div>
 
-    <!-- Store & Character Selection Modal -->
+    <!-- Store Modal -->
     <div id="storeModal">
-        <h2 style="color: #f1c40f; margin-top: 0; text-align: center; text-shadow: 1px 1px #000;">🍄 TOAD'S LEGENDARY BOUTIQUE</h2>
-        <div style="font-size: 12px; color: #ccc; text-align: center;">Unlock unique heroes with game-changing active skills & luxury skins!</div>
+        <h2 style="color: #f1c40f; margin-top: 0; text-align: center; text-shadow: 1px 1px #000;">🍄 TOAD'S ULTIMATE BOUTIQUE</h2>
+        <div style="font-size: 12px; color: #ccc; text-align: center;">Unlock elite heroes and legendary character outfits!</div>
         
-        <div style="margin-top: 15px; font-weight: bold; color: #3498db; font-size:13px;">CHOOSE HERO & UNIQUE SKILL:</div>
-        <div style="display: flex; gap: 6px; margin-top: 5px;">
-            <button class="btn-arcade" onclick="selectCharacter('mario')" style="flex:1; background:#c84c0c; font-size:11px;" id="charMario">Mario (Dash)</button>
-            <button class="btn-arcade" onclick="selectCharacter('luigi')" style="flex:1; background:#27ae60; font-size:11px;" id="charLuigi">Luigi (SuperJump)</button>
-            <button class="btn-arcade" onclick="selectCharacter('peach')" style="flex:1; background:#f39c12; font-size:11px;" id="charPeach">Peach (Hover)</button>
-            <button class="btn-arcade" onclick="selectCharacter('yoshi')" style="flex:1; background:#2ecc71; font-size:11px;" id="charYoshi">Yoshi (DoubleJump)</button>
+        <div style="margin-top: 12px; font-weight: bold; color: #3498db; font-size:12px;">CHOOSE HERO:</div>
+        <div style="display: flex; gap: 6px; margin-top: 4px;">
+            <button class="btn-arcade" onclick="selectCharacter('mario')" style="flex:1; background:#c84c0c; font-size:10px;" id="charMario">Mario (Dash)</button>
+            <button class="btn-arcade" onclick="selectCharacter('luigi')" style="flex:1; background:#27ae60; font-size:10px;" id="charLuigi">Luigi (MegaJump)</button>
+            <button class="btn-arcade" onclick="selectCharacter('peach')" style="flex:1; background:#f39c12; font-size:10px;" id="charPeach">Peach (Hover)</button>
+            <button class="btn-arcade" onclick="selectCharacter('yoshi')" style="flex:1; background:#2ecc71; font-size:10px;" id="charYoshi">Yoshi (Double)</button>
         </div>
 
-        <div style="margin-top: 15px; font-weight: bold; color: #f39c12; font-size:13px;">ULTIMATE OUTFIT SKINS:</div>
+        <div style="margin-top: 12px; font-weight: bold; color: #f39c12; font-size:12px;">WARDROBE SKINS:</div>
         <div class="store-grid">
             <div class="store-item" id="skin_classic">
-                <div style="font-weight:bold;">Classic Red</div>
-                <div style="font-size:11px; color:#aaa;">Default Gear</div>
-                <button class="btn-arcade" style="margin-top:8px; font-size:10px;" onclick="buySkin('classic', 0)">Equipped</button>
+                <div style="font-weight:bold; font-size:11px;">Classic</div>
+                <button class="btn-arcade" style="margin-top:6px; font-size:9px;" onclick="buySkin('classic', 0)">Equipped</button>
             </div>
             <div class="store-item" id="skin_fire">
-                <div style="font-weight:bold;">Fire Flower</div>
-                <div style="font-size:11px; color:#aaa;">Cost: 40 Coins</div>
-                <button class="btn-arcade" style="margin-top:8px; font-size:10px;" onclick="buySkin('fire', 40)">Unlock</button>
+                <div style="font-weight:bold; font-size:11px;">Fire (40c)</div>
+                <button class="btn-arcade" style="margin-top:6px; font-size:9px;" onclick="buySkin('fire', 40)">Unlock</button>
             </div>
             <div class="store-item" id="skin_gold">
-                <div style="font-weight:bold;">Super Star Gold</div>
-                <div style="font-size:11px; color:#aaa;">Cost: 90 Coins</div>
-                <button class="btn-arcade" style="margin-top:8px; font-size:10px;" onclick="buySkin('gold', 90)">Unlock</button>
+                <div style="font-weight:bold; font-size:11px;">Gold (90c)</div>
+                <button class="btn-arcade" style="margin-top:6px; font-size:9px;" onclick="buySkin('gold', 90)">Unlock</button>
             </div>
             <div class="store-item" id="skin_dark">
-                <div style="font-weight:bold;">Dark Matter</div>
-                <div style="font-size:11px; color:#aaa;">Cost: 150 Coins</div>
-                <button class="btn-arcade" style="margin-top:8px; font-size:10px;" onclick="buySkin('dark', 150)">Unlock</button>
+                <div style="font-weight:bold; font-size:11px;">Dark (150c)</div>
+                <button class="btn-arcade" style="margin-top:6px; font-size:9px;" onclick="buySkin('dark', 150)">Unlock</button>
             </div>
             <div class="store-item" id="skin_galaxy">
-                <div style="font-weight:bold;">Galaxy Cosmic</div>
-                <div style="font-size:11px; color:#aaa;">Cost: 250 Coins</div>
-                <button class="btn-arcade" style="margin-top:8px; font-size:10px;" onclick="buySkin('galaxy', 250)">Unlock</button>
+                <div style="font-weight:bold; font-size:11px;">Galaxy (250c)</div>
+                <button class="btn-arcade" style="margin-top:6px; font-size:9px;" onclick="buySkin('galaxy', 250)">Unlock</button>
             </div>
             <div class="store-item" id="skin_rainbow">
-                <div style="font-weight:bold;">Prismatic Rainbow</div>
-                <div style="font-size:11px; color:#aaa;">Cost: 400 Coins</div>
-                <button class="btn-arcade" style="margin-top:8px; font-size:10px;" onclick="buySkin('rainbow', 400)">Unlock</button>
+                <div style="font-weight:bold; font-size:11px;">Rainbow (400c)</div>
+                <button class="btn-arcade" style="margin-top:6px; font-size:9px;" onclick="buySkin('rainbow', 400)">Unlock</button>
             </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 15px;">
+            <button class="btn-arcade" onclick="closeStore()" style="background: #27ae60; width: 100%;">BACK TO GAME</button>
+        </div>
+    </div>
+
+    <!-- Custom Level & Rule Maker Form Modal -->
+    <div id="customMakerModal">
+        <h2 style="color: #2980b9; margin-top: 0; text-align: center; text-shadow: 1px 1px #000;">⚙️ CUSTOM GAME WORKSHOP</h2>
+        <div style="font-size: 11px; color: #ccc; text-align: center;">Tweak physics, speed, gravity, and environment parameters in real-time!</div>
+        
+        <div class="form-control-group">
+            <label>Player Movement Speed: <span id="valSpeed">4.2</span></label>
+            <input type="range" id="customSpeed" min="2.0" max="8.0" step="0.1" value="4.2" oninput="updateCustomParam('speed', this.value)">
+        </div>
+
+        <div class="form-control-group">
+            <label>Jump Power: <span id="valJump">-12.5</span></label>
+            <input type="range" id="customJump" min="-18.0" max="-8.0" step="0.5" value="-12.5" oninput="updateCustomParam('jump', this.value)">
+        </div>
+
+        <div class="form-control-group">
+            <label>Gravity Force: <span id="valGrav">0.5</span></label>
+            <input type="range" id="customGrav" min="0.1" max="1.2" step="0.05" value="0.5" oninput="updateCustomParam('grav', this.value)">
+        </div>
+
+        <div class="form-control-group">
+            <label>World Environment Theme:</label>
+            <select id="customTheme" onchange="updateCustomParam('theme', this.value)">
+                <option value="classic">Classic Overworld</option>
+                <option value="midnight">Midnight Galaxy</option>
+                <option value="neon">Neon Cyberpunk</option>
+                <option value="sunset">Sunset Volcano</option>
+            </select>
         </div>
 
         <div style="text-align: center; margin-top: 18px;">
-            <button class="btn-arcade" onclick="closeStore()" style="background: #27ae60; width: 100%;">RESUME GAME</button>
+            <button class="btn-arcade" onclick="closeCustomMaker()" style="background: #2980b9; width: 100%;">APPLY & PLAY</button>
         </div>
     </div>
 </div>
@@ -187,16 +235,18 @@ game_html = """
     ctx.imageSmoothingEnabled = false;
 
     let score = 0;
-    let coinsCollected = 100; // Bonus starting coins to test out store
+    let coinsCollected = 100;
     let isPaused = false;
     const keys = {};
 
     let cameraX = 0;
     let lastGeneratedX = 0;
 
-    let selectedChar = 'mario'; // mario, luigi, peach, yoshi
-    let currentSkin = 'classic'; // classic, fire, gold, dark, galaxy, rainbow
+    let selectedChar = 'mario';
+    let currentSkin = 'classic';
     let unlockedSkins = { classic: true, fire: false, gold: false, dark: false, galaxy: false, rainbow: false };
+
+    let currentTheme = 'classic';
 
     const player = {
         x: 64,
@@ -230,13 +280,13 @@ game_html = """
             player.jumpPower = -12.5;
         } else if (selectedChar === 'luigi') {
             player.speed = 4.0;
-            player.jumpPower = -14.5; // Mega Jump
+            player.jumpPower = -14.5;
         } else if (selectedChar === 'peach') {
             player.speed = 3.8;
-            player.jumpPower = -11.5; // Hover
+            player.jumpPower = -11.5;
         } else if (selectedChar === 'yoshi') {
             player.speed = 4.5;
-            player.jumpPower = -12.0; // Double Jump
+            player.jumpPower = -12.0;
         }
     }
 
@@ -271,6 +321,31 @@ game_html = """
     function closeStore() {
         isPaused = false;
         document.getElementById("storeModal").style.display = "none";
+    }
+
+    function openCustomMaker() {
+        isPaused = true;
+        document.getElementById("customMakerModal").style.display = "block";
+    }
+
+    function closeCustomMaker() {
+        isPaused = false;
+        document.getElementById("customMakerModal").style.display = "none";
+    }
+
+    function updateCustomParam(param, val) {
+        if (param === 'speed') {
+            player.speed = parseFloat(val);
+            document.getElementById('valSpeed').innerText = val;
+        } else if (param === 'jump') {
+            player.jumpPower = parseFloat(val);
+            document.getElementById('valJump').innerText = val;
+        } else if (param === 'grav') {
+            player.gravity = parseFloat(val);
+            document.getElementById('valGrav').innerText = val;
+        } else if (param === 'theme') {
+            currentTheme = val;
+        }
     }
 
     function togglePause() {
@@ -311,7 +386,6 @@ game_html = """
         }
     }
 
-    // High-Density Advanced Procedural Generator
     function generateChunk() {
         let groundWidth = 700 + Math.random() * 350;
         let biomeRand = Math.random();
@@ -327,7 +401,6 @@ game_html = """
         decorations.push({ x: lastGeneratedX + Math.random() * 250, y: 352, type: 'bush' });
         decorations.push({ x: lastGeneratedX + 450 + Math.random() * 200, y: 352, type: 'castle' });
 
-        // Coin Arches
         for (let cx = lastGeneratedX + 40; cx < lastGeneratedX + groundWidth - 80; cx += 65) {
             coins.push({ x: cx, y: 240 + Math.sin(cx * 0.06) * 50, radius: 9, collected: false });
         }
@@ -385,7 +458,6 @@ game_html = """
         if(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "KeyX"].includes(e.code)) {
             e.preventDefault();
         }
-        // Character Active Skill trigger on KeyX or ArrowDown
         if (e.code === "KeyX") {
             triggerActiveSkill();
         }
@@ -397,7 +469,7 @@ game_html = """
 
     function triggerActiveSkill() {
         if (selectedChar === 'mario' && player.dashCooldown <= 0) {
-            player.vx += (player.facing === 'right' ? 12 : -12); // Dash Skill
+            player.vx += (player.facing === 'right' ? 14 : -14);
             player.dashCooldown = 60;
             spawnParticles(player.x + 16, player.y + 16, '#e74c3c');
         }
@@ -455,13 +527,12 @@ game_html = """
 
         let grav = player.gravity;
         if (selectedChar === 'peach' && keys["ArrowUp"] && player.vy > 0) {
-            grav = 0.1; // Smooth Hover
+            grav = 0.1;
         }
 
         player.vy += grav;
         player.y += player.vy;
         
-        let wasGrounded = player.grounded;
         player.grounded = false;
 
         platforms.forEach(platform => {
@@ -499,7 +570,6 @@ game_html = """
             }
         });
 
-        // Jump Handling & Skills (Yoshi Double Jump, Luigi Super Jump)
         if (keys["ArrowUp"] || keys["Space"]) {
             if (player.grounded) {
                 player.vy = player.jumpPower;
@@ -560,7 +630,7 @@ game_html = """
                     enemy.alive = false;
                     player.vy = -10;
                     score += 200;
-                    coinsCollected += 1; // Extra coin reward for stomping enemies!
+                    coinsCollected += 1;
                     spawnParticles(enemy.x + 16, enemy.y + 16, '#f1c40f');
                 } else {
                     resetPlayer();
@@ -601,8 +671,7 @@ game_html = """
         }
     }
 
-    // High-End Next-Gen Shaded Sprite Rendering with Glow & Skin FX
-    function drawNextGenPlayer(x, y, facing) {
+    function drawPlayer(x, y, facing) {
         let shirtColor = '#e74c3c';
         let overallColor = '#2980b9';
         let hatColor = '#c0392b';
@@ -643,38 +712,32 @@ game_html = """
             hatColor = '#2ecc71';
         }
 
-        // Drop shadow for 3D realism
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.fillRect(x + 3, y + 30, 26, 4);
 
-        // Cap & Head
         ctx.fillStyle = hatColor;
         ctx.fillRect(x + (facing === 'right' ? 7 : 5), y, 22, 9);
         ctx.fillStyle = skinTone;
         ctx.fillRect(x + (facing === 'right' ? 11 : 5), y + 9, 16, 9);
 
-        // Eyes & Mustache
         ctx.fillStyle = '#000';
         ctx.fillRect(x + (facing === 'right' ? 19 : 7), y + 11, 3, 4);
         ctx.fillRect(x + (facing === 'right' ? 13 : 11), y + 15, 8, 3);
 
-        // Shirt & Overalls with glowing accents
         ctx.fillStyle = shirtColor;
         ctx.fillRect(x + 5, y + 18, 22, 10);
         ctx.fillStyle = overallColor;
         ctx.fillRect(x + 8, y + 22, 16, 6);
 
-        // Golden buttons
         ctx.fillStyle = '#f1c40f';
         ctx.fillRect(x + 9, y + 23, 3, 3);
         ctx.fillRect(x + 20, y + 23, 3, 3);
 
-        // Boots
         ctx.fillStyle = '#4a2306';
         ctx.fillRect(x + (facing === 'right' ? 16 : 2), y + 28, 14, 4);
     }
 
-    function drawNextGenGoomba(x, y) {
+    function drawGoomba(x, y) {
         ctx.fillStyle = '#78281f';
         ctx.fillRect(x + 2, y + 8, 28, 20);
         ctx.fillStyle = '#f5cba7';
@@ -687,7 +750,7 @@ game_html = """
         ctx.fillRect(x + 20, y + 28, 12, 4);
     }
 
-    function drawNextGenThwomp(x, y) {
+    function drawThwomp(x, y) {
         ctx.fillStyle = '#34495e';
         ctx.fillRect(x, y, 40, 40);
         ctx.strokeStyle = '#1b2631';
@@ -706,56 +769,39 @@ game_html = """
         ctx.save();
         ctx.translate(Math.floor(-cameraX), 0);
 
-        // Parallax background details
         decorations.forEach(dec => {
             if (dec.type === 'cloud') {
                 ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
                 ctx.fillRect(dec.x, dec.y, 75, 22);
                 ctx.fillRect(dec.x + 20, dec.y - 15, 35, 16);
             } else if (dec.type === 'bush') {
-                ctx.fillStyle = "#1e8449";
+                ctx.fillStyle = currentTheme === 'neon' ? '#00ffcc' : '#1e8449';
                 ctx.fillRect(dec.x, dec.y, 95, 32);
-                ctx.fillStyle = "#27ae60";
-                ctx.fillRect(dec.x + 15, dec.y - 14, 65, 16);
             } else if (dec.type === 'castle') {
                 ctx.fillStyle = '#566573';
                 ctx.fillRect(dec.x, dec.y - 30, 80, 62);
-                ctx.fillStyle = '#2c3e50';
-                ctx.fillRect(dec.x + 25, dec.y - 50, 30, 25);
             }
         });
 
         platforms.forEach(platform => {
             if (platform.x + platform.width >= cameraX - 100 && platform.x <= cameraX + canvas.width + 100) {
                 if (platform.type === 'ground') {
-                    ctx.fillStyle = '#a04000';
+                    ctx.fillStyle = currentTheme === 'midnight' ? '#1b4f72' : (currentTheme === 'neon' ? '#8e44ad' : '#a04000');
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height + 250);
-                    ctx.fillStyle = '#27ae60';
+                    ctx.fillStyle = currentTheme === 'neon' ? '#00ffff' : '#27ae60';
                     ctx.fillRect(platform.x, platform.y, platform.width, 10);
-                    ctx.fillStyle = '#2ecc71';
-                    ctx.fillRect(platform.x, platform.y + 10, platform.width, 4);
                 } else if (platform.type === 'ice') {
                     ctx.fillStyle = '#5499c7';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height + 250);
-                    ctx.fillStyle = '#a9cce3';
-                    ctx.fillRect(platform.x, platform.y, platform.width, 10);
                 } else if (platform.type === 'quicksand') {
                     ctx.fillStyle = '#9a7d0a';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height + 250);
-                    ctx.fillStyle = '#f1c40f';
-                    ctx.fillRect(platform.x, platform.y, platform.width, 10);
                 } else if (platform.type === 'brick') {
                     ctx.fillStyle = '#b03a2e';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-                    ctx.strokeStyle = '#641e16';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
                 } else if (platform.type === 'question') {
                     ctx.fillStyle = '#d4ac0d';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-                    ctx.strokeStyle = '#7d6608';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
                     ctx.fillStyle = '#ffffff';
                     ctx.font = "bold 20px 'Courier New'";
                     ctx.fillText("?", platform.x + 9, platform.y + 24);
@@ -763,12 +809,6 @@ game_html = """
                     ctx.fillStyle = '#27ae60';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
                     ctx.fillRect(platform.x - 4, platform.y, platform.width + 8, 16);
-                    ctx.fillStyle = '#2ecc71';
-                    ctx.fillRect(platform.x + 4, platform.y, 6, platform.height);
-                    ctx.strokeStyle = '#145a32';
-                    ctx.lineWidth = 2;
-                    ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
-                    ctx.strokeRect(platform.x - 4, platform.y, platform.width + 8, 16);
                 }
             }
         });
@@ -776,17 +816,12 @@ game_html = """
         movingPlatforms.forEach(mp => {
             ctx.fillStyle = '#8e44ad';
             ctx.fillRect(mp.x, mp.y, mp.width, mp.height);
-            ctx.strokeStyle = '#4a235a';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(mp.x, mp.y, mp.width, mp.height);
         });
 
         hazards.forEach(h => {
             if (h.type === 'lava') {
                 ctx.fillStyle = '#c0392b';
                 ctx.fillRect(h.x, h.y, h.width, h.height);
-                ctx.fillStyle = '#f39c12';
-                ctx.fillRect(h.x, h.y, h.width, 10);
             } else if (h.type === 'spikes') {
                 ctx.fillStyle = '#7f8c8d';
                 for (let sx = h.x; sx < h.x + h.width; sx += 16) {
@@ -808,22 +843,9 @@ game_html = """
             let endY = fb.y + Math.sin(fb.angle) * fb.length;
             ctx.lineTo(endX, endY);
             ctx.stroke();
-
-            for (let r = 15; r <= fb.length; r += 15) {
-                let bx = fb.x + Math.cos(fb.angle) * r;
-                let by = fb.y + Math.sin(fb.angle) * r;
-                ctx.fillStyle = '#e74c3c';
-                ctx.beginPath();
-                ctx.arc(bx, by, 7, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#f1c40f';
-                ctx.beginPath();
-                ctx.arc(bx, by, 3, 0, Math.PI * 2);
-                ctx.fill();
-            }
         });
 
-        thwomps.forEach(t => drawNextGenThwomp(t.x, t.y));
+        thwomps.forEach(t => drawThwomp(t.x, t.y));
 
         coins.forEach(coin => {
             if (!coin.collected && coin.x >= cameraX - 50 && coin.x <= cameraX + canvas.width + 50) {
@@ -831,19 +853,12 @@ game_html = """
                 ctx.beginPath();
                 ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.fillStyle = '#fef9e7';
-                ctx.beginPath();
-                ctx.arc(coin.x - 2, coin.y - 2, coin.radius * 0.4, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.strokeStyle = '#7d6608';
-                ctx.lineWidth = 2;
-                ctx.stroke();
             }
         });
 
         enemies.forEach(enemy => {
             if (enemy.alive && enemy.x >= cameraX - 100 && enemy.x <= cameraX + canvas.width + 100) {
-                drawNextGenGoomba(enemy.x, enemy.y);
+                drawGoomba(enemy.x, enemy.y);
             }
         });
 
@@ -852,27 +867,25 @@ game_html = """
             ctx.fillRect(p.x, p.y, 5, 5);
         });
 
-        drawNextGenPlayer(player.x, player.y, player.facing);
+        drawPlayer(player.x, player.y, player.facing);
 
         ctx.restore();
 
-        // Sleek Next-Gen HUD Overlay
         ctx.fillStyle = "rgba(10, 10, 16, 0.95)";
         ctx.fillRect(0, 0, canvas.width, 48);
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 14px 'Courier New'";
-        ctx.fillText("MARIO NEXT-GEN", 30, 28);
-        ctx.fillText(String(score).padStart(6, '0'), 30, 44);
+        ctx.font = "bold 13px 'Courier New'";
+        ctx.fillText("MARIO WORKSHOP", 20, 28);
+        ctx.fillText(String(score).padStart(6, '0'), 20, 44);
 
-        ctx.fillText("COINS", 230, 28);
-        ctx.fillText("x" + String(coinsCollected).padStart(2, '0'), 246, 44);
+        ctx.fillText("COINS", 210, 28);
+        ctx.fillText("x" + String(coinsCollected).padStart(2, '0'), 220, 44);
 
-        ctx.fillText("HERO / SKILL", 420, 28);
-        ctx.fillText(selectedChar.toUpperCase() + (player.dashCooldown > 0 ? " (CD)" : " [READY]"), 420, 44);
+        ctx.fillText("THEME: " + currentTheme.toUpperCase(), 370, 28);
+        ctx.fillText("HERO: " + selectedChar.toUpperCase(), 370, 44);
 
-        ctx.fillText("DISTANCE", 620, 28);
-        ctx.fillText(Math.floor(cameraX / 10) + "m", 620, 44);
+        ctx.fillText("DIST: " + Math.floor(cameraX / 10) + "m", 620, 36);
     }
 
     function loop() {
