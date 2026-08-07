@@ -97,6 +97,17 @@ game_html = """
             box-shadow: 0 0 80px rgba(241, 196, 15, 0.8);
             text-align: center;
             border-radius: 8px;
+            animation: modalZoomIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+        @keyframes modalZoomIn {
+            0% {
+                transform: translate(-50%, -50%) scale(0.2);
+                opacity: 0;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
         }
         #gameOverScreen {
             display: none;
@@ -164,7 +175,7 @@ game_html = """
 <div class="game-wrapper">
     <canvas id="gameCanvas" width="768" height="432"></canvas>
     
-    <!-- Entry / Main Menu Screen -->
+    <!-- Entry / Main Menu Screen with Entry Animation -->
     <div id="entryScreen">
         <h1 style="color: #ffcc00; text-shadow: 2px 2px #ff0000; font-size: 26px; margin-top:0;">🍄 SUPER MARIO 🍄</h1>
         <div style="font-size: 13px; color: #3498db; margin-bottom: 25px; letter-spacing: 1px;">INFINITE DELUXE ULTIMATE EDITION</div>
