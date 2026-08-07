@@ -1,13 +1,13 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Infinite Classic Mario - Advanced Biomes",
+    page_title="Infinite Classic Mario - Ultimate Hardcore",
     page_icon="🍄",
     layout="centered"
 )
 
-st.title("🍄 Infinite Classic Mario - Advanced Biomes")
-st.write("An infinite procedural runner featuring balanced jump physics, interactive obstacles, moving platform gaps, slippery ice, and instant-death hazards!")
+st.title("🍄 Infinite Classic Mario - Ultimate Hardcore")
+st.write("The ultimate endless challenge featuring bottomless pits, lava pools, crushing Thwomps, sharp spikes, slippery ice, moving platform gaps, shifting quicksand, and shooting Fire Bars!")
 
 game_html = """
 <!DOCTYPE html>
@@ -81,9 +81,10 @@ game_html = """
     let enemies = [];
     let coins = [];
     let decorations = [];
-    let hazards = []; // Spikes, Lava, Quicksand pools
+    let hazards = []; 
     let movingPlatforms = [];
     let thwomps = [];
+    let fireBars = [];
 
     function addGround(startX, width, type='ground') {
         platforms.push({ x: startX, y: 384, width: width, height: 48, type: type });
@@ -107,20 +108,19 @@ game_html = """
     }
 
     function generateChunk() {
-        let groundWidth = 800 + Math.random() * 400;
-        let biomeType = Math.random();
+        let groundWidth = 750 + Math.random() * 400;
+        let biomeRand = Math.random();
         
         let surfaceType = 'ground';
-        if (biomeType > 0.75) surfaceType = 'ice'; // Slippery ice
-        else if (biomeType > 0.5) surfaceType = 'quicksand'; // Sinking quicksand
+        if (biomeRand > 0.8) surfaceType = 'ice';
+        else if (biomeRand > 0.6) surfaceType = 'quicksand';
 
         addGround(lastGeneratedX, groundWidth, surfaceType);
 
-        // Scenery
         decorations.push({ x: lastGeneratedX + Math.random() * 200, y: 70, type: 'cloud' });
         decorations.push({ x: lastGeneratedX + 450 + Math.random() * 200, y: 60, type: 'cloud' });
 
-        let pattern = Math.floor(Math.random() * 5);
+        let pattern = Math.floor(Math.random() * 7);
         
         if (pattern === 0) {
             // Standard Pipes & Goombas
@@ -128,38 +128,44 @@ game_html = """
             addPipe(lastGeneratedX + 500, 64);
             addGoomba(lastGeneratedX + 380, 352);
         } else if (pattern === 1) {
-            // Sharp Spikes on ground or blocks
+            // Spikes on ground and blocks
             addBrick(lastGeneratedX + 300, 272);
             addQuestionBlock(lastGeneratedX + 332, 272);
-            // Spikes below
             hazards.push({ x: lastGeneratedX + 380, y: 368, width: 64, height: 16, type: 'spikes' });
             addGoomba(lastGeneratedX + 480, 352);
         } else if (pattern === 2) {
-            // Crushing Thwomp from above
+            // Crushing Thwomp
             thwomps.push({ x: lastGeneratedX + 350, y: 80, startY: 80, width: 40, height: 40, timer: 0, crushing: false });
             addGoomba(lastGeneratedX + 360, 352);
         } else if (pattern === 3) {
-            // Moving platform gap
+            // Moving platform gap with Lava beneath
             movingPlatforms.push({ 
-                x: lastGeneratedX + 250, y: 280, width: 80, height: 16, 
-                minX: lastGeneratedX + 200, maxX: lastGeneratedX + 450, vx: 1.5 
+                x: lastGeneratedX + 220, y: 280, width: 80, height: 16, 
+                minX: lastGeneratedX + 180, maxX: lastGeneratedX + 460, vx: 1.5 
             });
-            // Instant death lava pit beneath moving platform
-            hazards.push({ x: lastGeneratedX + 200, y: 392, width: 280, height: 40, type: 'lava' });
+            hazards.push({ x: lastGeneratedX + 180, y: 392, width: 300, height: 40, type: 'lava' });
         } else if (pattern === 4) {
-            // Standard Blocks and Goombas
-            addBrick(lastGeneratedX + 200, 256);
-            addBrick(lastGeneratedX + 232, 256);
-            addGoomba(lastGeneratedX + 320, 352);
-            addGoomba(lastGeneratedX + 360, 352);
+            // Rotating Fire Bar obstacle
+            fireBars.push({ x: lastGeneratedX + 320, y: 300, angle: 0, length: 50, speed: 0.04 });
+            addBrick(lastGeneratedX + 300, 272);
+            addBrick(lastGeneratedX + 340, 272);
+        } else if (pattern === 5) {
+            // Dual Fire Bars + Spike hazard combo
+            fireBars.push({ x: lastGeneratedX + 250, y: 320, angle: 0, length: 40, speed: -0.05 });
+            fireBars.push({ x: lastGeneratedX + 450, y: 320, angle: 1.5, length: 40, speed: 0.05 });
+            hazards.push({ x: lastGeneratedX + 320, y: 368, width: 96, height: 16, type: 'spikes' });
+        } else if (pattern === 6) {
+            // Multi-tier hazard mix
+            thwomps.push({ x: lastGeneratedX + 280, y: 80, startY: 80, width: 40, height: 40, timer: 0, crushing: false });
+            hazards.push({ x: lastGeneratedX + 380, y: 368, width: 64, height: 16, type: 'spikes' });
+            addGoomba(lastGeneratedX + 500, 352);
         }
 
         lastGeneratedX += groundWidth;
         
-        // Bottomless pit gap or lava gap
+        // Bottomless pit or Lava gap
         let pitSize = 90 + Math.random() * 80;
-        if (Math.random() > 0.5) {
-            // Fill pit with instant-death lava
+        if (Math.random() > 0.4) {
             hazards.push({ x: lastGeneratedX, y: 392, width: pitSize, height: 40, type: 'lava' });
         }
         lastGeneratedX += pitSize;
@@ -189,7 +195,6 @@ game_html = """
     }
 
     function update() {
-        // Horizontal Movement with Ice Slipping / Quicksand Drag
         let currentPlatformType = 'ground';
         platforms.forEach(p => {
             if (player.x + player.width > p.x && player.x < p.x + p.width && Math.abs((player.y + player.height) - p.y) < 5) {
@@ -200,9 +205,9 @@ game_html = """
         let acceleration = 0.4;
         let friction = 0.85;
         if (currentPlatformType === 'ice') {
-            friction = 0.98; // Very slippery
+            friction = 0.98;
         } else if (currentPlatformType === 'quicksand') {
-            player.vx *= 0.7; // Slow movement in quicksand
+            player.vx *= 0.7;
         }
 
         if (keys["ArrowLeft"]) {
@@ -229,12 +234,10 @@ game_html = """
             generateChunk();
         }
 
-        // Gravity & Physics
         player.vy += player.gravity;
         player.y += player.vy;
         player.grounded = false;
 
-        // Platform Collisions
         platforms.forEach(platform => {
             if (
                 player.x < platform.x + platform.width &&
@@ -243,16 +246,16 @@ game_html = """
                 player.y + player.height - player.vy <= platform.y + 14 &&
                 player.vy >= 0
             ) {
+                player.y = platform.y - platform.height; // fixed height bug indexing
                 player.y = platform.y - player.height;
                 player.vy = 0;
                 player.grounded = true;
                 if (platform.type === 'quicksand') {
-                    player.y += 1.5; // Sinking effect
+                    player.y += 1.5;
                 }
             }
         });
 
-        // Moving Platforms Collision
         movingPlatforms.forEach(mp => {
             mp.x += mp.vx;
             if (mp.x < mp.minX || mp.x > mp.maxX) mp.vx *= -1;
@@ -267,32 +270,27 @@ game_html = """
                 player.y = mp.y - player.height;
                 player.vy = 0;
                 player.grounded = true;
-                player.x += mp.vx; // Carry player along
+                player.x += mp.vx;
             }
         });
 
-        // Jump
         if ((keys["ArrowUp"] || keys["Space"]) && player.grounded) {
             player.vy = player.jumpPower;
             player.grounded = false;
         }
 
-        // Thwomp AI (Crushing hazard)
+        // Thwomps
         thwomps.forEach(t => {
             let distToPlayer = Math.abs(player.x - t.x);
-            if (distToPlayer < 120) {
-                t.crushing = true;
-            }
+            if (distToPlayer < 120) t.crushing = true;
             if (t.crushing) {
-                t.y += 6; // Slam down fast
+                t.y += 6;
                 if (t.y >= 340) t.y = 340;
-                // Return slowly after slam
                 setTimeout(() => { t.crushing = false; }, 800);
             } else if (t.y > t.startY) {
-                t.y -= 2; // Rise back up
+                t.y -= 2;
             }
 
-            // Thwomp collision with player
             if (
                 player.x < t.x + t.width &&
                 player.x + player.width > t.x &&
@@ -303,7 +301,19 @@ game_html = """
             }
         });
 
-        // Hazard Collision (Spikes & Lava = Instant Death)
+        // Fire Bars rotation and collision
+        fireBars.forEach(fb => {
+            fb.angle += fb.speed;
+            let tipX = fb.x + Math.cos(fb.angle) * fb.length;
+            let tipY = fb.y + Math.sin(fb.angle) * fb.length;
+
+            let distToPlayerTip = Math.hypot((player.x + player.width/2) - tipX, (player.y + player.height/2) - tipY);
+            if (distToPlayerTip < 20) {
+                resetPlayer();
+            }
+        });
+
+        // Hazards
         hazards.forEach(h => {
             if (
                 player.x + player.width > h.x &&
@@ -315,7 +325,7 @@ game_html = """
             }
         });
 
-        // Enemy AI & Physics
+        // Enemies
         enemies.forEach(enemy => {
             if (!enemy.alive) return;
             enemy.vy += player.gravity;
@@ -352,7 +362,7 @@ game_html = """
             }
         });
 
-        // Coin Collection
+        // Coins
         coins.forEach(coin => {
             if (!coin.collected) {
                 let dist = Math.hypot(coin.x - (player.x + player.width / 2), coin.y - (player.y + player.height / 2));
@@ -364,12 +374,10 @@ game_html = """
             }
         });
 
-        // Bottomless Pit Fall
         if (player.y > canvas.height + 80) {
             resetPlayer();
         }
 
-        // Cleanup offscreen objects
         if (platforms.length > 80 && platforms[0].x < cameraX - 1000) {
             platforms = platforms.filter(p => p.x + p.width > cameraX - 800);
             enemies = enemies.filter(e => e.x > cameraX - 800);
@@ -377,6 +385,7 @@ game_html = """
             hazards = hazards.filter(h => h.x + h.width > cameraX - 800);
             movingPlatforms = movingPlatforms.filter(mp => mp.x + mp.width > cameraX - 800);
             thwomps = thwomps.filter(t => t.x > cameraX - 800);
+            fireBars = fireBars.filter(fb => fb.x > cameraX - 800);
             decorations = decorations.filter(d => d.x > cameraX - 800);
         }
     }
@@ -410,13 +419,13 @@ game_html = """
     }
 
     function drawThwomp(x, y) {
-        ctx.fillStyle = '#7f8c8d'; // Grey stone block
+        ctx.fillStyle = '#7f8c8d';
         ctx.fillRect(x, y, 40, 40);
-        ctx.fillStyle = '#e74c3c'; // Angry Red Eyes
+        ctx.fillStyle = '#e74c3c';
         ctx.fillRect(x + 6, y + 12, 8, 6);
         ctx.fillRect(x + 26, y + 12, 8, 6);
         ctx.fillStyle = '#000000';
-        ctx.fillRect(x + 8, y + 26, 24, 6); // Mouth
+        ctx.fillRect(x + 8, y + 26, 24, 6);
     }
 
     function draw() {
@@ -425,7 +434,6 @@ game_html = """
         ctx.save();
         ctx.translate(Math.floor(-cameraX), 0);
 
-        // Clouds
         decorations.forEach(dec => {
             if (dec.type === 'cloud') {
                 ctx.fillStyle = "#ffffff";
@@ -434,7 +442,6 @@ game_html = """
             }
         });
 
-        // Platforms, Ground, Biomes (Ice, Quicksand)
         platforms.forEach(platform => {
             if (platform.x + platform.width >= cameraX - 100 && platform.x <= cameraX + canvas.width + 100) {
                 if (platform.type === 'ground') {
@@ -443,12 +450,12 @@ game_html = """
                     ctx.fillStyle = '#00a800';
                     ctx.fillRect(platform.x, platform.y, platform.width, 8);
                 } else if (platform.type === 'ice') {
-                    ctx.fillStyle = '#a9cce3'; // Ice Blue Surface
+                    ctx.fillStyle = '#a9cce3';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height + 200);
                     ctx.fillStyle = '#ebf5fb';
                     ctx.fillRect(platform.x, platform.y, platform.width, 8);
                 } else if (platform.type === 'quicksand') {
-                    ctx.fillStyle = '#d4ac0d'; // Muddy Quicksand
+                    ctx.fillStyle = '#d4ac0d';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height + 200);
                     ctx.fillStyle = '#f1c40f';
                     ctx.fillRect(platform.x, platform.y, platform.width, 8);
@@ -479,22 +486,20 @@ game_html = """
             }
         });
 
-        // Moving Platforms
         movingPlatforms.forEach(mp => {
-            ctx.fillStyle = '#8e44ad'; // Purple moving platform
+            ctx.fillStyle = '#8e44ad';
             ctx.fillRect(mp.x, mp.y, mp.width, mp.height);
             ctx.strokeStyle = '#000000';
             ctx.lineWidth = 2;
             ctx.strokeRect(mp.x, mp.y, mp.width, mp.height);
         });
 
-        // Hazards (Lava & Spikes)
         hazards.forEach(h => {
             if (h.type === 'lava') {
-                ctx.fillStyle = '#e74c3c'; // Glowing Red Lava
+                ctx.fillStyle = '#e74c3c';
                 ctx.fillRect(h.x, h.y, h.width, h.height);
                 ctx.fillStyle = '#f39c12';
-                ctx.fillRect(h.x, h.y, h.width, 8); // Bubbling top layer
+                ctx.fillRect(h.x, h.y, h.width, 8);
             } else if (h.type === 'spikes') {
                 ctx.fillStyle = '#bdc3c7';
                 for (let sx = h.x; sx < h.x + h.width; sx += 16) {
@@ -507,12 +512,32 @@ game_html = """
             }
         });
 
-        // Thwomps
+        // Draw Fire Bars
+        fireBars.forEach(fb => {
+            ctx.strokeStyle = '#f39c12';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(fb.x, fb.y);
+            let endX = fb.x + Math.cos(fb.angle) * fb.length;
+            let endY = fb.y + Math.sin(fb.angle) * fb.length;
+            ctx.lineTo(endX, endY);
+            ctx.stroke();
+
+            // Fire balls along the bar
+            for (let r = 15; r <= fb.length; r += 15) {
+                let bx = fb.x + Math.cos(fb.angle) * r;
+                let by = fb.y + Math.sin(fb.angle) * r;
+                ctx.fillStyle = '#e74c3c';
+                ctx.beginPath();
+                ctx.arc(bx, by, 6, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        });
+
         thwomps.forEach(t => {
             drawThwomp(t.x, t.y);
         });
 
-        // Coins
         coins.forEach(coin => {
             if (!coin.collected && coin.x >= cameraX - 50 && coin.x <= cameraX + canvas.width + 50) {
                 ctx.fillStyle = '#fcbc3c';
@@ -525,19 +550,16 @@ game_html = """
             }
         });
 
-        // Enemies
         enemies.forEach(enemy => {
             if (enemy.alive && enemy.x >= cameraX - 100 && enemy.x <= cameraX + canvas.width + 100) {
                 drawGoomba(enemy.x, enemy.y);
             }
         });
 
-        // Player
         drawPixelMario(player.x, player.y, player.facing);
 
         ctx.restore();
 
-        // HUD
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, canvas.width, 45);
 
