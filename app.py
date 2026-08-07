@@ -83,8 +83,8 @@ game_html = """
             transform: translateY(2px);
             box-shadow: 0 2px #990000;
         }
-        #storeModal, #customMakerModal {
-            display: none;
+        /* Entry Menu & Settings Overlays */
+        #entryScreen, #settingsModal {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -92,13 +92,16 @@ game_html = """
             width: 580px;
             background: rgba(10, 10, 18, 0.98);
             border: 4px solid #f1c40f;
-            padding: 20px;
-            z-index: 10;
+            padding: 25px;
+            z-index: 20;
             box-shadow: 0 0 80px rgba(241, 196, 15, 0.8);
+            text-align: center;
+            border-radius: 8px;
+        }
+        #settingsModal {
+            display: none;
+            z-index: 25;
             text-align: left;
-            border-radius: 6px;
-            max-height: 420px;
-            overflow-y: auto;
         }
         .store-grid {
             display: grid;
@@ -131,6 +134,23 @@ game_html = """
             font-family: 'Courier New';
             border-radius: 3px;
         }
+        #storeModal, #customMakerModal {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 580px;
+            background: rgba(10, 10, 18, 0.98);
+            border: 4px solid #f1c40f;
+            padding: 20px;
+            z-index: 10;
+            box-shadow: 0 0 80px rgba(241, 196, 15, 0.8);
+            text-align: left;
+            border-radius: 6px;
+            max-height: 420px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
@@ -138,11 +158,40 @@ game_html = """
 <div class="game-wrapper">
     <canvas id="gameCanvas" width="768" height="432"></canvas>
     
+    <!-- Entry / Main Menu Screen -->
+    <div id="entryScreen">
+        <h1 style="color: #ffcc00; text-shadow: 2px 2px #ff0000; font-size: 26px; margin-top:0;">🍄 SUPER MARIO 🍄</h1>
+        <div style="font-size: 13px; color: #3498db; margin-bottom: 25px; letter-spacing: 1px;">INFINITE DELUXE ULTIMATE EDITION</div>
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 70%; margin: 0 auto;">
+            <button class="btn-arcade" onclick="startGame()" style="background:#27ae60; font-size:16px; padding:12px;">▶ BEGIN GAME</button>
+            <button class="btn-arcade" onclick="openSettingsMenu()" style="background:#2980b9; font-size:14px; padding:10px;">⚙ SETTINGS</button>
+        </div>
+    </div>
+
+    <!-- Settings Menu Modal -->
+    <div id="settingsModal">
+        <h2 style="color: #2980b9; margin-top: 0; text-align: center; text-shadow: 1px 1px #000;">⚙ GAME SETTINGS</h2>
+        <div class="form-control-group">
+            <label>BGM Music Volume: <span id="volVal">50%</span></label>
+            <input type="range" id="musicVol" min="0" max="100" value="50" oninput="updateMusicVolume(this.value)">
+        </div>
+        <div class="form-control-group">
+            <label>SFX Sound Effects:</label>
+            <select id="sfxToggle">
+                <option value="on">Enabled</option>
+                <option value="off">Muted</option>
+            </select>
+        </div>
+        <div style="text-align: center; margin-top: 20px;">
+            <button class="btn-arcade" onclick="closeSettingsMenu()" style="background: #27ae60; width: 100%;">SAVE & BACK</button>
+        </div>
+    </div>
+
     <div class="hud-panel">
-        <div>KEYS: ARROWS / SPACE / X (SKILL)</div>
+        <div>KEYS: ARROWS / SPACE / X (SKILL) | SCORE: <span id="hudScore">0</span> | COINS: <span id="hudCoins">100</span></div>
         <div>
             <button class="btn-arcade" onclick="openStore()" style="background:#27ae60;">SHOP</button>
-            <button class="btn-arcade" onclick="openCustomMaker()" style="background:#2980b9;">CUSTOM BUILDER</button>
+            <button class="btn-arcade" onclick="openCustomMaker()" style="background:#2980b9;">BUILDER</button>
             <button class="btn-arcade" onclick="togglePause()" id="pauseBtn">PAUSE</button>
         </div>
     </div>
@@ -234,9 +283,10 @@ game_html = """
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
 
+    let gameStarted = false;
     let score = 0;
     let coinsCollected = 100;
-    let isPaused = false;
+    let isPaused = true;
     const keys = {};
 
     let cameraX = 0;
@@ -247,6 +297,80 @@ game_html = """
     let unlockedSkins = { classic: true, fire: false, gold: false, dark: false, galaxy: false, rainbow: false };
 
     let currentTheme = 'classic';
+
+    // Official Synth/BGM Music Generator via Web Audio API
+    let audioCtx = null;
+    let musicInterval = null;
+    let musicVolume = 0.5;
+
+    function initMusic() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+
+    function playNote(freq, duration, type='square') {
+        if (!audioCtx || musicVolume === 0) return;
+        try {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.value = freq;
+            
+            gain.gain.setValueAtTime(musicVolume * 0.15, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        } catch(e) {}
+    }
+
+    // Official Classic Overworld Theme Melody Pattern
+    const melodyNotes = [
+        659.25, 659.25, 0, 659.25, 0, 523.25, 659.25, 0, 783.99, 0, 0, 0, 392.00, 0, 0, 0,
+        523.25, 0, 0, 392.00, 0, 0, 329.63, 0, 0, 440.00, 0, 493.88, 0, 466.16, 440.00, 0
+    ];
+    let noteIndex = 0;
+
+    function startBGM() {
+        if (musicInterval) clearInterval(musicInterval);
+        musicInterval = setInterval(() => {
+            if (!isPaused && gameStarted) {
+                let freq = melodyNotes[noteIndex];
+                if (freq > 0) {
+                    playNote(freq, 0.18, 'square');
+                }
+                noteIndex = (noteIndex + 1) % melodyNotes.length;
+            }
+        }, 140);
+    }
+
+    function updateMusicVolume(val) {
+        musicVolume = val / 100;
+        document.getElementById('volVal').innerText = val + '%';
+    }
+
+    function startGame() {
+        initMusic();
+        gameStarted = true;
+        isPaused = false;
+        document.getElementById('entryScreen').style.display = 'none';
+        startBGM();
+    }
+
+    function openSettingsMenu() {
+        document.getElementById('settingsModal').style.display = 'block';
+    }
+
+    function closeSettingsMenu() {
+        document.getElementById('settingsModal').style.display = 'none';
+    }
 
     const player = {
         x: 64,
@@ -669,6 +793,9 @@ game_html = """
             fireBars = fireBars.filter(fb => fb.x > cameraX - 800);
             decorations = decorations.filter(d => d.x > cameraX - 800);
         }
+
+        document.getElementById('hudScore').innerText = score;
+        document.getElementById('hudCoins').innerText = coinsCollected;
     }
 
     function drawPlayer(x, y, facing) {
@@ -835,70 +962,64 @@ game_html = """
         });
 
         fireBars.forEach(fb => {
-            ctx.strokeStyle = '#f39c12';
-            ctx.lineWidth = 6;
+            ctx.fillStyle = '#7f8c8d';
             ctx.beginPath();
-            ctx.moveTo(fb.x, fb.y);
-            let endX = fb.x + Math.cos(fb.angle) * fb.length;
-            let endY = fb.y + Math.sin(fb.angle) * fb.length;
-            ctx.lineTo(endX, endY);
-            ctx.stroke();
-        });
-
-        thwomps.forEach(t => drawThwomp(t.x, t.y));
-
-        coins.forEach(coin => {
-            if (!coin.collected && coin.x >= cameraX - 50 && coin.x <= cameraX + canvas.width + 50) {
-                ctx.fillStyle = '#f1c40f';
+            ctx.arc(fb.x, fb.y, 6, 0, Math.PI * 2);
+            ctx.fill();
+            for (let r = 12; r <= fb.length; r += 14) {
+                let px = fb.x + Math.cos(fb.angle) * r;
+                let py = fb.y + Math.sin(fb.angle) * r;
+                ctx.fillStyle = '#e67e22';
                 ctx.beginPath();
-                ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
+                ctx.arc(px, py, 6, 0, Math.PI * 2);
                 ctx.fill();
             }
         });
 
+        thwomps.forEach(t => {
+            drawThwomp(t.x, t.y);
+        });
+
         enemies.forEach(enemy => {
-            if (enemy.alive && enemy.x >= cameraX - 100 && enemy.x <= cameraX + canvas.width + 100) {
+            if (enemy.alive) {
                 drawGoomba(enemy.x, enemy.y);
+            }
+        });
+
+        coins.forEach(coin => {
+            if (!coin.collected) {
+                ctx.fillStyle = '#f1c40f';
+                ctx.beginPath();
+                ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#f39c12';
+                ctx.beginPath();
+                ctx.arc(coin.x, coin.y, coin.radius - 3, 0, Math.PI * 2);
+                ctx.fill();
             }
         });
 
         particles.forEach(p => {
             ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, 5, 5);
+            ctx.fillRect(p.x, p.y, 4, 4);
         });
 
         drawPlayer(player.x, player.y, player.facing);
 
         ctx.restore();
-
-        ctx.fillStyle = "rgba(10, 10, 16, 0.95)";
-        ctx.fillRect(0, 0, canvas.width, 48);
-
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 13px 'Courier New'";
-        ctx.fillText("MARIO WORKSHOP", 20, 28);
-        ctx.fillText(String(score).padStart(6, '0'), 20, 44);
-
-        ctx.fillText("COINS", 210, 28);
-        ctx.fillText("x" + String(coinsCollected).padStart(2, '0'), 220, 44);
-
-        ctx.fillText("THEME: " + currentTheme.toUpperCase(), 370, 28);
-        ctx.fillText("HERO: " + selectedChar.toUpperCase(), 370, 44);
-
-        ctx.fillText("DIST: " + Math.floor(cameraX / 10) + "m", 620, 36);
     }
 
-    function loop() {
+    function gameLoop() {
         update();
         draw();
-        requestAnimationFrame(loop);
+        requestAnimationFrame(gameLoop);
     }
 
-    loop();
+    requestAnimationFrame(gameLoop);
 </script>
 
 </body>
 </html>
 """
 
-st.components.v1.html(game_html, height=520, scrolling=False)
+st.components.v1.html(game_html, height=540, scrolling=False)
