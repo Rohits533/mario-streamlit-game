@@ -83,7 +83,6 @@ game_html = """
             transform: translateY(2px);
             box-shadow: 0 2px #990000;
         }
-        /* Entry Menu, Game Over & Settings Overlays */
         #entryScreen, #gameOverScreen, #settingsModal {
             position: absolute;
             top: 50%;
@@ -175,10 +174,11 @@ game_html = """
 <div class="game-wrapper">
     <canvas id="gameCanvas" width="768" height="432"></canvas>
     
-    <!-- Entry / Main Menu Screen with Entry Animation -->
+    <!-- Entry / Main Menu Screen -->
     <div id="entryScreen">
         <h1 style="color: #ffcc00; text-shadow: 2px 2px #ff0000; font-size: 26px; margin-top:0;">🍄 SUPER MARIO 🍄</h1>
         <div style="font-size: 13px; color: #3498db; margin-bottom: 25px; letter-spacing: 1px;">INFINITE DELUXE ULTIMATE EDITION</div>
+        <div style="font-size: 12px; color: #2ecc71; margin-bottom: 15px;">⭐ High Score: <span id="menuHighScore">0</span> | 🪙 Coins: <span id="menuCoins">100</span></div>
         <div style="display: flex; flex-direction: column; gap: 12px; width: 70%; margin: 0 auto;">
             <button class="btn-arcade" onclick="startGame()" style="background:#27ae60; font-size:16px; padding:12px;">▶ BEGIN GAME</button>
             <button class="btn-arcade" onclick="openSettingsMenu()" style="background:#2980b9; font-size:14px; padding:10px;">⚙ SETTINGS</button>
@@ -188,8 +188,9 @@ game_html = """
     <!-- Game Over Screen -->
     <div id="gameOverScreen">
         <h1 style="color: #e74c3c; text-shadow: 2px 2px #000; font-size: 28px; margin-top:0;">💀 GAME OVER 💀</h1>
-        <div style="font-size: 13px; color: #ccc; margin-bottom: 15px;">Hero fell into hazard or pit!</div>
-        <div style="font-size: 15px; color: #f1c40f; margin-bottom: 20px;">Final Score: <span id="finalScoreVal">0</span></div>
+        <div style="font-size: 13px; color: #ccc; margin-bottom: 10px;">Hero fell into hazard or pit!</div>
+        <div style="font-size: 14px; color: #f1c40f; margin-bottom: 5px;">Final Score: <span id="finalScoreVal">0</span></div>
+        <div style="font-size: 13px; color: #2ecc71; margin-bottom: 20px;">🏆 High Score: <span id="gameOverHighScore">0</span></div>
         <div style="display: flex; flex-direction: column; gap: 12px; width: 70%; margin: 0 auto;">
             <button class="btn-arcade" onclick="restartGame()" style="background:#27ae60; font-size:15px; padding:12px;">🔄 PLAY AGAIN</button>
             <button class="btn-arcade" onclick="returnToMainMenu()" style="background:#2980b9; font-size:13px; padding:10px;">🏠 MAIN MENU</button>
@@ -216,7 +217,7 @@ game_html = """
     </div>
 
     <div class="hud-panel">
-        <div>KEYS: ARROWS / SPACE / X (SKILL) | SCORE: <span id="hudScore">0</span> | COINS: <span id="hudCoins">100</span></div>
+        <div>ARROWS/SPACE/X | SCORE: <span id="hudScore">0</span> | BEST: <span id="hudHighScore">0</span> | COINS: <span id="hudCoins">100</span></div>
         <div>
             <button class="btn-arcade" onclick="openStore()" style="background:#27ae60;">SHOP</button>
             <button class="btn-arcade" onclick="openCustomMaker()" style="background:#2980b9;">BUILDER</button>
@@ -314,7 +315,8 @@ game_html = """
     let gameStarted = false;
     let gameOver = false;
     let score = 0;
-    let coinsCollected = 100;
+    let highScore = parseInt(localStorage.getItem('mario_highscore') || '0');
+    let coinsCollected = parseInt(localStorage.getItem('mario_coins') || '100');
     let isPaused = true;
     const keys = {};
 
@@ -326,6 +328,11 @@ game_html = """
     let unlockedSkins = { classic: true, fire: false, gold: false, dark: false, galaxy: false, rainbow: false };
 
     let currentTheme = 'classic';
+
+    document.getElementById('menuHighScore').innerText = highScore;
+    document.getElementById('menuCoins').innerText = coinsCollected;
+    document.getElementById('hudHighScore').innerText = highScore;
+    document.getElementById('hudCoins').innerText = coinsCollected;
 
     // Official Synth/BGM Music Generator via Web Audio API
     let audioCtx = null;
@@ -360,7 +367,6 @@ game_html = """
         } catch(e) {}
     }
 
-    // Official Classic Overworld Theme Melody Pattern
     const melodyNotes = [
         659.25, 659.25, 0, 659.25, 0, 523.25, 659.25, 0, 783.99, 0, 0, 0, 392.00, 0, 0, 0,
         523.25, 0, 0, 392.00, 0, 0, 329.63, 0, 0, 440.00, 0, 493.88, 0, 466.16, 440.00, 0
@@ -409,6 +415,8 @@ game_html = """
         gameStarted = false;
         isPaused = true;
         document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('menuHighScore').innerText = highScore;
+        document.getElementById('menuCoins').innerText = coinsCollected;
         document.getElementById('entryScreen').style.display = 'block';
     }
 
@@ -433,7 +441,9 @@ game_html = """
         grounded: false,
         facing: 'right',
         canDoubleJump: false,
-        dashCooldown: 0
+        dashCooldown: 0,
+        poweredUp: false,
+        powerTimer: 0
     };
 
     let platforms = [];
@@ -444,7 +454,13 @@ game_html = """
     let movingPlatforms = [];
     let thwomps = [];
     let fireBars = [];
+    let powerUps = [];
     let particles = [];
+    let floatingTexts = [];
+    let bossActive = false;
+    let bossHp = 100;
+    let bossX = 0;
+    let bossY = 0;
 
     function resetGameState() {
         cameraX = 0;
@@ -457,8 +473,11 @@ game_html = """
         movingPlatforms = [];
         thwomps = [];
         fireBars = [];
+        powerUps = [];
         particles = [];
+        floatingTexts = [];
         score = 0;
+        bossActive = false;
 
         addGround(0, 900, 'ground');
         lastGeneratedX = 900;
@@ -469,6 +488,8 @@ game_html = """
         player.vx = 0;
         player.vy = 0;
         player.dashCooldown = 0;
+        player.poweredUp = false;
+        player.powerTimer = 0;
         updateCharacterStats();
     }
 
@@ -504,6 +525,9 @@ game_html = """
                 coinsCollected -= cost;
                 unlockedSkins[skinName] = true;
                 currentSkin = skinName;
+                localStorage.setItem('mario_coins', coinsCollected);
+                document.getElementById('menuCoins').innerText = coinsCollected;
+                document.getElementById('hudCoins').innerText = coinsCollected;
                 alert("Purchased and equipped " + skinName + "!");
             } else {
                 alert("Not enough coins! Collect more in the game!");
@@ -562,7 +586,13 @@ game_html = """
 
     function addQuestionBlock(x, y, hasCoin=true) {
         platforms.push({ x: x, y: y, width: 32, height: 32, type: 'question' });
-        if (hasCoin) coins.push({ x: x + 16, y: y - 24, radius: 9, collected: false });
+        if (hasCoin) {
+            if (Math.random() > 0.7) {
+                powerUps.push({ x: x + 8, y: y - 24, type: 'mushroom', collected: false, vy: 0 });
+            } else {
+                coins.push({ x: x + 16, y: y - 24, radius: 9, collected: false });
+            }
+        }
     }
 
     function addBrick(x, y) {
@@ -585,7 +615,21 @@ game_html = """
         }
     }
 
+    function addFloatingText(x, y, text, color='#f1c40f') {
+        floatingTexts.push({ x: x, y: y, text: text, color: color, life: 40 });
+    }
+
     function generateChunk() {
+        if (score >= 5000 && !bossActive && Math.random() > 0.4) {
+            bossActive = true;
+            bossHp = 100;
+            bossX = lastGeneratedX + 200;
+            bossY = 300;
+            addGround(lastGeneratedX, 600, 'ground');
+            lastGeneratedX += 600;
+            return;
+        }
+
         let groundWidth = 700 + Math.random() * 350;
         let biomeRand = Math.random();
         
@@ -676,9 +720,26 @@ game_html = """
     }
 
     function triggerGameOver() {
+        if (player.poweredUp) {
+            player.poweredUp = false;
+            player.height = 32;
+            player.y -= 16;
+            spawnParticles(player.x + 16, player.y + 16, '#e74c3c');
+            addFloatingText(player.x, player.y - 10, "SUPER LOSS!", "#e74c3c");
+            return;
+        }
+
         gameOver = true;
         spawnParticles(player.x + 16, player.y + 16, '#e74c3c');
+
+        if (score > highScore) {
+            highScore = score;
+            localStorage.setItem('mario_highscore', highScore);
+        }
+        localStorage.setItem('mario_coins', coinsCollected);
+
         document.getElementById('finalScoreVal').innerText = score;
+        document.getElementById('gameOverHighScore').innerText = highScore;
         document.getElementById('gameOverScreen').style.display = 'block';
     }
 
@@ -686,6 +747,13 @@ game_html = """
         if (isPaused || gameOver || !gameStarted) return;
 
         if (player.dashCooldown > 0) player.dashCooldown--;
+        if (player.poweredUp) {
+            player.powerTimer--;
+            if (player.powerTimer <= 0) {
+                player.poweredUp = false;
+                player.height = 32;
+            }
+        }
 
         let currentPlatformType = 'ground';
         platforms.forEach(p => {
@@ -780,6 +848,28 @@ game_html = """
             }
         }
 
+        if (bossActive) {
+            if (Math.abs(player.x - bossX) < 200) {
+                bossX -= 0.8;
+            }
+            if (player.x < bossX + 48 && player.x + player.width > bossX && player.y < bossY + 48 && player.y + player.height > bossY) {
+                if (player.vy > 0 && player.y + player.height - player.vy <= bossY + 16) {
+                    bossHp -= 25;
+                    player.vy = -12;
+                    addFloatingText(bossX, bossY - 20, "-25 HP!", "#e74c3c");
+                    spawnParticles(bossX + 24, bossY + 24, '#e74c3c');
+                    if (bossHp <= 0) {
+                        bossActive = false;
+                        score += 2000;
+                        coinsCollected += 20;
+                        addFloatingText(bossX, bossY - 40, "+2000 BOSS DEFEATED!", "#f1c40f");
+                    }
+                } else {
+                    triggerGameOver();
+                }
+            }
+        }
+
         thwomps.forEach(t => {
             if (Math.abs(player.x - t.x) < 130) t.crushing = true;
             if (t.crushing) {
@@ -809,6 +899,29 @@ game_html = """
             }
         });
 
+        powerUps.forEach(pw => {
+            if (!pw.collected) {
+                pw.vy += player.gravity;
+                pw.y += pw.vy;
+                platforms.forEach(platform => {
+                    if (pw.x < platform.x + platform.width && pw.x + 20 > platform.x && pw.y + 20 >= platform.y && pw.y + 20 - pw.vy <= platform.y + 14 && pw.vy >= 0) {
+                        pw.y = platform.y - 20;
+                        pw.vy = 0;
+                    }
+                });
+                let dist = Math.hypot((pw.x + 10) - (player.x + player.width / 2), (pw.y + 10) - (player.y + player.height / 2));
+                if (dist < 24) {
+                    pw.collected = true;
+                    player.poweredUp = true;
+                    player.height = 48;
+                    player.powerTimer = 500;
+                    score += 500;
+                    addFloatingText(player.x, player.y - 20, "+500 SUPER MUSHROOM!", "#2ecc71");
+                    spawnParticles(player.x, player.y, '#2ecc71');
+                }
+            }
+        });
+
         enemies.forEach(enemy => {
             if (!enemy.alive) return;
             enemy.vy += player.gravity;
@@ -829,6 +942,7 @@ game_html = """
                     player.vy = -10;
                     score += 200;
                     coinsCollected += 1;
+                    addFloatingText(enemy.x, enemy.y - 15, "+200", "#f1c40f");
                     spawnParticles(enemy.x + 16, enemy.y + 16, '#f1c40f');
                 } else {
                     triggerGameOver();
@@ -843,6 +957,7 @@ game_html = """
                     coin.collected = true;
                     score += 250;
                     coinsCollected += 1;
+                    addFloatingText(coin.x, coin.y - 15, "+250", "#f1c40f");
                     spawnParticles(coin.x, coin.y, '#f1c40f');
                 }
             }
@@ -855,6 +970,12 @@ game_html = """
             if (p.life <= 0) particles.splice(index, 1);
         });
 
+        floatingTexts.forEach((ft, index) => {
+            ft.y -= 0.8;
+            ft.life--;
+            if (ft.life <= 0) floatingTexts.splice(index, 1);
+        });
+
         if (player.y > canvas.height + 80) triggerGameOver();
 
         if (platforms.length > 80 && platforms[0].x < cameraX - 1000) {
@@ -865,14 +986,16 @@ game_html = """
             movingPlatforms = movingPlatforms.filter(mp => mp.x + mp.width > cameraX - 800);
             thwomps = thwomps.filter(t => t.x > cameraX - 800);
             fireBars = fireBars.filter(fb => fb.x > cameraX - 800);
+            powerUps = powerUps.filter(pw => pw.x > cameraX - 800);
             decorations = decorations.filter(d => d.x > cameraX - 800);
         }
 
         document.getElementById('hudScore').innerText = score;
+        document.getElementById('hudHighScore').innerText = highScore;
         document.getElementById('hudCoins').innerText = coinsCollected;
     }
 
-    function drawPlayer(x, y, facing) {
+    function drawPlayer(x, y, facing, h) {
         let shirtColor = '#e74c3c';
         let overallColor = '#2980b9';
         let hatColor = '#c0392b';
@@ -914,7 +1037,7 @@ game_html = """
         }
 
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.fillRect(x + 3, y + 30, 26, 4);
+        ctx.fillRect(x + 3, y + h - 2, 26, 4);
 
         ctx.fillStyle = hatColor;
         ctx.fillRect(x + (facing === 'right' ? 7 : 5), y, 22, 9);
@@ -926,16 +1049,16 @@ game_html = """
         ctx.fillRect(x + (facing === 'right' ? 13 : 11), y + 15, 8, 3);
 
         ctx.fillStyle = shirtColor;
-        ctx.fillRect(x + 5, y + 18, 22, 10);
+        ctx.fillRect(x + 5, y + 18, 22, h > 32 ? 20 : 10);
         ctx.fillStyle = overallColor;
-        ctx.fillRect(x + 8, y + 22, 16, 6);
+        ctx.fillRect(x + 8, y + 22, 16, h > 32 ? 14 : 6);
 
         ctx.fillStyle = '#f1c40f';
         ctx.fillRect(x + 9, y + 23, 3, 3);
         ctx.fillRect(x + 20, y + 23, 3, 3);
 
         ctx.fillStyle = '#4a2306';
-        ctx.fillRect(x + (facing === 'right' ? 16 : 2), y + 28, 14, 4);
+        ctx.fillRect(x + (facing === 'right' ? 16 : 2), y + h - 4, 14, 4);
     }
 
     function drawGoomba(x, y) {
@@ -949,6 +1072,21 @@ game_html = """
         ctx.fillStyle = '#512e5f';
         ctx.fillRect(x, y + 28, 12, 4);
         ctx.fillRect(x + 20, y + 28, 12, 4);
+    }
+
+    function drawBoss(x, y) {
+        ctx.fillStyle = '#b03a2e';
+        ctx.fillRect(x, y, 48, 48);
+        ctx.fillStyle = '#f1c40f';
+        ctx.fillRect(x + 6, y + 10, 10, 10);
+        ctx.fillRect(x + 32, y + 10, 10, 10);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x + 12, y + 36, 24, 6);
+        // HP Bar
+        ctx.fillStyle = '#000';
+        ctx.fillRect(x - 10, y - 16, 68, 8);
+        ctx.fillStyle = '#2ecc71';
+        ctx.fillRect(x - 8, y - 14, (bossHp / 100) * 64, 4);
     }
 
     function drawThwomp(x, y) {
@@ -1054,9 +1192,23 @@ game_html = """
             drawThwomp(t.x, t.y);
         });
 
+        if (bossActive) {
+            drawBoss(bossX, bossY);
+        }
+
         enemies.forEach(enemy => {
             if (enemy.alive) {
                 drawGoomba(enemy.x, enemy.y);
+            }
+        });
+
+        powerUps.forEach(pw => {
+            if (!pw.collected) {
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillRect(pw.x, pw.y, 20, 20);
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(pw.x + 4, pw.y + 4, 4, 4);
+                ctx.fillRect(pw.x + 12, pw.y + 4, 4, 4);
             }
         });
 
@@ -1078,8 +1230,14 @@ game_html = """
             ctx.fillRect(p.x, p.y, 4, 4);
         });
 
+        floatingTexts.forEach(ft => {
+            ctx.fillStyle = ft.color;
+            ctx.font = "bold 13px 'Courier New'";
+            ctx.fillText(ft.text, ft.x, ft.y);
+        });
+
         if (!gameOver) {
-            drawPlayer(player.x, player.y, player.facing);
+            drawPlayer(player.x, player.y, player.facing, player.height);
         }
 
         ctx.restore();
