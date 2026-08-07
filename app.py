@@ -1,13 +1,13 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Infinite Classic Mario - Balanced",
+    page_title="Infinite Classic Mario - Advanced Biomes",
     page_icon="🍄",
     layout="centered"
 )
 
-st.title("🍄 Infinite Classic Mario")
-st.write("An endlessly generating recreation with perfectly balanced jump physics, accessible obstacles, and classic NES mechanics.")
+st.title("🍄 Infinite Classic Mario - Advanced Biomes")
+st.write("An infinite procedural runner featuring balanced jump physics, interactive obstacles, moving platform gaps, slippery ice, and instant-death hazards!")
 
 game_html = """
 <!DOCTYPE html>
@@ -30,7 +30,7 @@ game_html = """
         }
         canvas {
             border: 4px solid #fff;
-            background: #5c94fc; /* Classic NES Blue */
+            background: #5c94fc;
             box-shadow: 0 0 25px rgba(92, 148, 252, 0.5);
             image-rendering: pixelated;
             image-rendering: crisp-edges;
@@ -71,8 +71,8 @@ game_html = """
         vx: 0,
         vy: 0,
         speed: 3.8,
-        jumpPower: -12.0, // Increased jump height to comfortably clear all standard blocks and pipes
-        gravity: 0.5,     // Smoother gravity arc
+        jumpPower: -12.0,
+        gravity: 0.5,
         grounded: false,
         facing: 'right'
     };
@@ -81,15 +81,15 @@ game_html = """
     let enemies = [];
     let coins = [];
     let decorations = [];
+    let hazards = []; // Spikes, Lava, Quicksand pools
+    let movingPlatforms = [];
+    let thwomps = [];
 
-    // --- PROCEDURAL WORLD GENERATION (BALANCED HEIGHTS) ---
-
-    function addGround(startX, width) {
-        platforms.push({ x: startX, y: 384, width: width, height: 48, type: 'ground' });
+    function addGround(startX, width, type='ground') {
+        platforms.push({ x: startX, y: 384, width: width, height: 48, type: type });
     }
 
     function addPipe(x, height) {
-        // Max pipe height kept safely within Mario's jump capability
         platforms.push({ x: x, y: 384 - height, width: 64, height: height, type: 'pipe' });
     }
 
@@ -102,68 +102,73 @@ game_html = """
         platforms.push({ x: x, y: y, width: 32, height: 32, type: 'brick' });
     }
 
-    function addStaircase(startX, steps, ascend=true) {
-        for (let i = 0; i < steps; i++) {
-            let height = (ascend ? i + 1 : steps - i) * 32;
-            let stepX = startX + (i * 32);
-            platforms.push({ x: stepX, y: 384 - height, width: 32, height: height, type: 'brick' });
-        }
-    }
-
     function addGoomba(x, y) {
         enemies.push({ x: x, y: y, width: 32, height: 32, vx: -1.2, alive: true, vy: 0 });
     }
 
     function generateChunk() {
-        let groundWidth = 900 + Math.random() * 500;
-        addGround(lastGeneratedX, groundWidth);
+        let groundWidth = 800 + Math.random() * 400;
+        let biomeType = Math.random();
+        
+        let surfaceType = 'ground';
+        if (biomeType > 0.75) surfaceType = 'ice'; // Slippery ice
+        else if (biomeType > 0.5) surfaceType = 'quicksand'; // Sinking quicksand
 
-        // Scenery decoration
-        decorations.push({ x: lastGeneratedX + Math.random() * 250, y: 70, type: 'cloud' });
-        decorations.push({ x: lastGeneratedX + 500 + Math.random() * 200, y: 60, type: 'cloud' });
-        decorations.push({ x: lastGeneratedX + Math.random() * 400, y: 352, type: 'bush' });
+        addGround(lastGeneratedX, groundWidth, surfaceType);
 
-        // Safe, fully interactive patterns
-        let pattern = Math.floor(Math.random() * 4);
+        // Scenery
+        decorations.push({ x: lastGeneratedX + Math.random() * 200, y: 70, type: 'cloud' });
+        decorations.push({ x: lastGeneratedX + 450 + Math.random() * 200, y: 60, type: 'cloud' });
+
+        let pattern = Math.floor(Math.random() * 5);
         
         if (pattern === 0) {
             // Standard Pipes & Goombas
-            addPipe(lastGeneratedX + 280, 48); // Small pipe
-            addPipe(lastGeneratedX + 550, 64); // Medium pipe
-            addGoomba(lastGeneratedX + 420, 352);
-            addGoomba(lastGeneratedX + 680, 352);
+            addPipe(lastGeneratedX + 250, 48);
+            addPipe(lastGeneratedX + 500, 64);
+            addGoomba(lastGeneratedX + 380, 352);
         } else if (pattern === 1) {
-            // Accessible Question Blocks & Bricks
-            addBrick(lastGeneratedX + 220, 272);
-            addQuestionBlock(lastGeneratedX + 252, 272);
-            addBrick(lastGeneratedX + 284, 272);
-            addGoomba(lastGeneratedX + 350, 352);
+            // Sharp Spikes on ground or blocks
+            addBrick(lastGeneratedX + 300, 272);
+            addQuestionBlock(lastGeneratedX + 332, 272);
+            // Spikes below
+            hazards.push({ x: lastGeneratedX + 380, y: 368, width: 64, height: 16, type: 'spikes' });
+            addGoomba(lastGeneratedX + 480, 352);
         } else if (pattern === 2) {
-            // Classic Staircase pyramid
-            addStaircase(lastGeneratedX + 250, 4, true);
-            addStaircase(lastGeneratedX + 378, 4, false);
-            addGoomba(lastGeneratedX + 520, 352);
+            // Crushing Thwomp from above
+            thwomps.push({ x: lastGeneratedX + 350, y: 80, startY: 80, width: 40, height: 40, timer: 0, crushing: false });
+            addGoomba(lastGeneratedX + 360, 352);
         } else if (pattern === 3) {
-            // Coin row with low obstacle
-            addPipe(lastGeneratedX + 300, 48);
-            addQuestionBlock(lastGeneratedX + 300, 192);
-            addQuestionBlock(lastGeneratedX + 332, 192);
-            addGoomba(lastGeneratedX + 450, 352);
+            // Moving platform gap
+            movingPlatforms.push({ 
+                x: lastGeneratedX + 250, y: 280, width: 80, height: 16, 
+                minX: lastGeneratedX + 200, maxX: lastGeneratedX + 450, vx: 1.5 
+            });
+            // Instant death lava pit beneath moving platform
+            hazards.push({ x: lastGeneratedX + 200, y: 392, width: 280, height: 40, type: 'lava' });
+        } else if (pattern === 4) {
+            // Standard Blocks and Goombas
+            addBrick(lastGeneratedX + 200, 256);
+            addBrick(lastGeneratedX + 232, 256);
+            addGoomba(lastGeneratedX + 320, 352);
+            addGoomba(lastGeneratedX + 360, 352);
         }
 
         lastGeneratedX += groundWidth;
         
-        // Balanced pit gaps (not too wide, fully jumpable)
-        let pitSize = 80 + Math.random() * 70;
+        // Bottomless pit gap or lava gap
+        let pitSize = 90 + Math.random() * 80;
+        if (Math.random() > 0.5) {
+            // Fill pit with instant-death lava
+            hazards.push({ x: lastGeneratedX, y: 392, width: pitSize, height: 40, type: 'lava' });
+        }
         lastGeneratedX += pitSize;
     }
 
-    // Initialize starting area
-    addGround(0, 1000);
-    lastGeneratedX = 1000;
+    addGround(0, 900, 'ground');
+    lastGeneratedX = 900;
     generateChunk();
 
-    // --- INPUT HANDLING ---
     window.addEventListener("keydown", (e) => {
         keys[e.code] = true;
         if(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
@@ -175,16 +180,41 @@ game_html = """
         keys[e.code] = false;
     });
 
-    // --- GAME LOOP ---
+    function resetPlayer() {
+        player.x = cameraX + 64;
+        player.y = 100;
+        player.vy = 0;
+        player.vx = 0;
+        score = Math.max(0, score - 300);
+    }
+
     function update() {
+        // Horizontal Movement with Ice Slipping / Quicksand Drag
+        let currentPlatformType = 'ground';
+        platforms.forEach(p => {
+            if (player.x + player.width > p.x && player.x < p.x + p.width && Math.abs((player.y + player.height) - p.y) < 5) {
+                currentPlatformType = p.type;
+            }
+        });
+
+        let acceleration = 0.4;
+        let friction = 0.85;
+        if (currentPlatformType === 'ice') {
+            friction = 0.98; // Very slippery
+        } else if (currentPlatformType === 'quicksand') {
+            player.vx *= 0.7; // Slow movement in quicksand
+        }
+
         if (keys["ArrowLeft"]) {
-            player.vx = -player.speed;
+            player.vx -= acceleration;
+            if (player.vx < -player.speed) player.vx = -player.speed;
             player.facing = 'left';
         } else if (keys["ArrowRight"]) {
-            player.vx = player.speed;
+            player.vx += acceleration;
+            if (player.vx > player.speed) player.vx = player.speed;
             player.facing = 'right';
         } else {
-            player.vx = 0;
+            player.vx *= friction;
         }
 
         player.x += player.vx;
@@ -199,11 +229,12 @@ game_html = """
             generateChunk();
         }
 
-        // Physics & Platform Collision
+        // Gravity & Physics
         player.vy += player.gravity;
         player.y += player.vy;
         player.grounded = false;
 
+        // Platform Collisions
         platforms.forEach(platform => {
             if (
                 player.x < platform.x + platform.width &&
@@ -215,19 +246,78 @@ game_html = """
                 player.y = platform.y - player.height;
                 player.vy = 0;
                 player.grounded = true;
+                if (platform.type === 'quicksand') {
+                    player.y += 1.5; // Sinking effect
+                }
             }
         });
 
-        // Jump trigger
+        // Moving Platforms Collision
+        movingPlatforms.forEach(mp => {
+            mp.x += mp.vx;
+            if (mp.x < mp.minX || mp.x > mp.maxX) mp.vx *= -1;
+
+            if (
+                player.x < mp.x + mp.width &&
+                player.x + player.width > mp.x &&
+                player.y + player.height >= mp.y &&
+                player.y + player.height - player.vy <= mp.y + 12 &&
+                player.vy >= 0
+            ) {
+                player.y = mp.y - player.height;
+                player.vy = 0;
+                player.grounded = true;
+                player.x += mp.vx; // Carry player along
+            }
+        });
+
+        // Jump
         if ((keys["ArrowUp"] || keys["Space"]) && player.grounded) {
             player.vy = player.jumpPower;
             player.grounded = false;
         }
 
-        // Enemy Physics & AI
+        // Thwomp AI (Crushing hazard)
+        thwomps.forEach(t => {
+            let distToPlayer = Math.abs(player.x - t.x);
+            if (distToPlayer < 120) {
+                t.crushing = true;
+            }
+            if (t.crushing) {
+                t.y += 6; // Slam down fast
+                if (t.y >= 340) t.y = 340;
+                // Return slowly after slam
+                setTimeout(() => { t.crushing = false; }, 800);
+            } else if (t.y > t.startY) {
+                t.y -= 2; // Rise back up
+            }
+
+            // Thwomp collision with player
+            if (
+                player.x < t.x + t.width &&
+                player.x + player.width > t.x &&
+                player.y < t.y + t.height &&
+                player.y + player.height > t.y
+            ) {
+                resetPlayer();
+            }
+        });
+
+        // Hazard Collision (Spikes & Lava = Instant Death)
+        hazards.forEach(h => {
+            if (
+                player.x + player.width > h.x &&
+                player.x < h.x + h.width &&
+                player.y + player.height > h.y &&
+                player.y < h.y + h.height
+            ) {
+                resetPlayer();
+            }
+        });
+
+        // Enemy AI & Physics
         enemies.forEach(enemy => {
             if (!enemy.alive) return;
-            
             enemy.vy += player.gravity;
             enemy.y += enemy.vy;
             
@@ -246,7 +336,6 @@ game_html = """
 
             enemy.x += enemy.vx;
 
-            // Player collision with Goomba
             if (
                 player.x < enemy.x + enemy.width &&
                 player.x + player.width > enemy.x &&
@@ -255,13 +344,10 @@ game_html = """
             ) {
                 if (player.vy > 0 && player.y + player.height - player.vy <= enemy.y + 14) {
                     enemy.alive = false;
-                    player.vy = -9; // Satisfying bounce
+                    player.vy = -9;
                     score += 100;
                 } else {
-                    player.x = cameraX + 64;
-                    player.y = 100;
-                    player.vy = 0;
-                    score = Math.max(0, score - 150);
+                    resetPlayer();
                 }
             }
         });
@@ -278,12 +364,9 @@ game_html = """
             }
         });
 
-        // Pit Fall Check
+        // Bottomless Pit Fall
         if (player.y > canvas.height + 80) {
-            player.x = cameraX + 64;
-            player.y = 100;
-            player.vy = 0;
-            score = Math.max(0, score - 300);
+            resetPlayer();
         }
 
         // Cleanup offscreen objects
@@ -291,11 +374,13 @@ game_html = """
             platforms = platforms.filter(p => p.x + p.width > cameraX - 800);
             enemies = enemies.filter(e => e.x > cameraX - 800);
             coins = coins.filter(c => c.x > cameraX - 800);
+            hazards = hazards.filter(h => h.x + h.width > cameraX - 800);
+            movingPlatforms = movingPlatforms.filter(mp => mp.x + mp.width > cameraX - 800);
+            thwomps = thwomps.filter(t => t.x > cameraX - 800);
             decorations = decorations.filter(d => d.x > cameraX - 800);
         }
     }
 
-    // --- RENDERING ---
     function drawPixelMario(x, y, facing) {
         ctx.fillStyle = '#c84c0c';
         ctx.fillRect(x + (facing === 'right' ? 8 : 4), y, 20, 8);
@@ -324,32 +409,48 @@ game_html = """
         ctx.fillRect(x + 20, y + 14, 4, 6);
     }
 
+    function drawThwomp(x, y) {
+        ctx.fillStyle = '#7f8c8d'; // Grey stone block
+        ctx.fillRect(x, y, 40, 40);
+        ctx.fillStyle = '#e74c3c'; // Angry Red Eyes
+        ctx.fillRect(x + 6, y + 12, 8, 6);
+        ctx.fillRect(x + 26, y + 12, 8, 6);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(x + 8, y + 26, 24, 6); // Mouth
+    }
+
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         ctx.save();
         ctx.translate(Math.floor(-cameraX), 0);
 
-        // Clouds & Bushes
+        // Clouds
         decorations.forEach(dec => {
             if (dec.type === 'cloud') {
                 ctx.fillStyle = "#ffffff";
                 ctx.fillRect(dec.x, dec.y, 64, 16);
                 ctx.fillRect(dec.x + 16, dec.y - 16, 32, 16);
-            } else if (dec.type === 'bush') {
-                ctx.fillStyle = "#00a800";
-                ctx.fillRect(dec.x, dec.y, 96, 32);
-                ctx.fillRect(dec.x + 16, dec.y - 16, 64, 16);
             }
         });
 
-        // Platforms & Obstacles
+        // Platforms, Ground, Biomes (Ice, Quicksand)
         platforms.forEach(platform => {
             if (platform.x + platform.width >= cameraX - 100 && platform.x <= cameraX + canvas.width + 100) {
                 if (platform.type === 'ground') {
                     ctx.fillStyle = '#c84c0c';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height + 200);
                     ctx.fillStyle = '#00a800';
+                    ctx.fillRect(platform.x, platform.y, platform.width, 8);
+                } else if (platform.type === 'ice') {
+                    ctx.fillStyle = '#a9cce3'; // Ice Blue Surface
+                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height + 200);
+                    ctx.fillStyle = '#ebf5fb';
+                    ctx.fillRect(platform.x, platform.y, platform.width, 8);
+                } else if (platform.type === 'quicksand') {
+                    ctx.fillStyle = '#d4ac0d'; // Muddy Quicksand
+                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height + 200);
+                    ctx.fillStyle = '#f1c40f';
                     ctx.fillRect(platform.x, platform.y, platform.width, 8);
                 } else if (platform.type === 'brick') {
                     ctx.fillStyle = '#c84c0c';
@@ -376,6 +477,39 @@ game_html = """
                     ctx.strokeRect(platform.x - 4, platform.y, platform.width + 8, 16);
                 }
             }
+        });
+
+        // Moving Platforms
+        movingPlatforms.forEach(mp => {
+            ctx.fillStyle = '#8e44ad'; // Purple moving platform
+            ctx.fillRect(mp.x, mp.y, mp.width, mp.height);
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(mp.x, mp.y, mp.width, mp.height);
+        });
+
+        // Hazards (Lava & Spikes)
+        hazards.forEach(h => {
+            if (h.type === 'lava') {
+                ctx.fillStyle = '#e74c3c'; // Glowing Red Lava
+                ctx.fillRect(h.x, h.y, h.width, h.height);
+                ctx.fillStyle = '#f39c12';
+                ctx.fillRect(h.x, h.y, h.width, 8); // Bubbling top layer
+            } else if (h.type === 'spikes') {
+                ctx.fillStyle = '#bdc3c7';
+                for (let sx = h.x; sx < h.x + h.width; sx += 16) {
+                    ctx.beginPath();
+                    ctx.moveTo(sx, h.y + h.height);
+                    ctx.lineTo(sx + 8, h.y);
+                    ctx.lineTo(sx + 16, h.y + h.height);
+                    ctx.fill();
+                }
+            }
+        });
+
+        // Thwomps
+        thwomps.forEach(t => {
+            drawThwomp(t.x, t.y);
         });
 
         // Coins
