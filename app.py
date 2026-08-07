@@ -83,8 +83,8 @@ game_html = """
             transform: translateY(2px);
             box-shadow: 0 2px #990000;
         }
-        /* Entry Menu & Settings Overlays */
-        #entryScreen, #settingsModal {
+        /* Entry Menu, Game Over & Settings Overlays */
+        #entryScreen, #gameOverScreen, #settingsModal {
             position: absolute;
             top: 50%;
             left: 50%;
@@ -97,6 +97,12 @@ game_html = """
             box-shadow: 0 0 80px rgba(241, 196, 15, 0.8);
             text-align: center;
             border-radius: 8px;
+        }
+        #gameOverScreen {
+            display: none;
+            border: 4px solid #e74c3c;
+            box-shadow: 0 0 80px rgba(231, 76, 60, 0.8);
+            z-index: 30;
         }
         #settingsModal {
             display: none;
@@ -165,6 +171,17 @@ game_html = """
         <div style="display: flex; flex-direction: column; gap: 12px; width: 70%; margin: 0 auto;">
             <button class="btn-arcade" onclick="startGame()" style="background:#27ae60; font-size:16px; padding:12px;">▶ BEGIN GAME</button>
             <button class="btn-arcade" onclick="openSettingsMenu()" style="background:#2980b9; font-size:14px; padding:10px;">⚙ SETTINGS</button>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameOverScreen">
+        <h1 style="color: #e74c3c; text-shadow: 2px 2px #000; font-size: 28px; margin-top:0;">💀 GAME OVER 💀</h1>
+        <div style="font-size: 13px; color: #ccc; margin-bottom: 15px;">Hero fell into hazard or pit!</div>
+        <div style="font-size: 15px; color: #f1c40f; margin-bottom: 20px;">Final Score: <span id="finalScoreVal">0</span></div>
+        <div style="display: flex; flex-direction: column; gap: 12px; width: 70%; margin: 0 auto;">
+            <button class="btn-arcade" onclick="restartGame()" style="background:#27ae60; font-size:15px; padding:12px;">🔄 PLAY AGAIN</button>
+            <button class="btn-arcade" onclick="returnToMainMenu()" style="background:#2980b9; font-size:13px; padding:10px;">🏠 MAIN MENU</button>
         </div>
     </div>
 
@@ -284,6 +301,7 @@ game_html = """
     ctx.imageSmoothingEnabled = false;
 
     let gameStarted = false;
+    let gameOver = false;
     let score = 0;
     let coinsCollected = 100;
     let isPaused = true;
@@ -341,7 +359,7 @@ game_html = """
     function startBGM() {
         if (musicInterval) clearInterval(musicInterval);
         musicInterval = setInterval(() => {
-            if (!isPaused && gameStarted) {
+            if (!isPaused && gameStarted && !gameOver) {
                 let freq = melodyNotes[noteIndex];
                 if (freq > 0) {
                     playNote(freq, 0.18, 'square');
@@ -359,9 +377,28 @@ game_html = """
     function startGame() {
         initMusic();
         gameStarted = true;
+        gameOver = false;
         isPaused = false;
         document.getElementById('entryScreen').style.display = 'none';
+        document.getElementById('gameOverScreen').style.display = 'none';
+        resetGameState();
         startBGM();
+    }
+
+    function restartGame() {
+        gameOver = false;
+        isPaused = false;
+        document.getElementById('gameOverScreen').style.display = 'none';
+        resetGameState();
+        startBGM();
+    }
+
+    function returnToMainMenu() {
+        gameOver = false;
+        gameStarted = false;
+        isPaused = true;
+        document.getElementById('gameOverScreen').style.display = 'none';
+        document.getElementById('entryScreen').style.display = 'block';
     }
 
     function openSettingsMenu() {
@@ -397,6 +434,32 @@ game_html = """
     let thwomps = [];
     let fireBars = [];
     let particles = [];
+
+    function resetGameState() {
+        cameraX = 0;
+        lastGeneratedX = 0;
+        platforms = [];
+        enemies = [];
+        coins = [];
+        decorations = [];
+        hazards = [];
+        movingPlatforms = [];
+        thwomps = [];
+        fireBars = [];
+        particles = [];
+        score = 0;
+
+        addGround(0, 900, 'ground');
+        lastGeneratedX = 900;
+        generateChunk();
+
+        player.x = 64;
+        player.y = 200;
+        player.vx = 0;
+        player.vy = 0;
+        player.dashCooldown = 0;
+        updateCharacterStats();
+    }
 
     function updateCharacterStats() {
         if (selectedChar === 'mario') {
@@ -473,6 +536,7 @@ game_html = """
     }
 
     function togglePause() {
+        if (gameOver || !gameStarted) return;
         isPaused = !isPaused;
         document.getElementById("pauseBtn").innerText = isPaused ? "RESUME" : "PAUSE";
     }
@@ -592,6 +656,7 @@ game_html = """
     });
 
     function triggerActiveSkill() {
+        if (gameOver || isPaused || !gameStarted) return;
         if (selectedChar === 'mario' && player.dashCooldown <= 0) {
             player.vx += (player.facing === 'right' ? 14 : -14);
             player.dashCooldown = 60;
@@ -599,17 +664,15 @@ game_html = """
         }
     }
 
-    function resetPlayer() {
+    function triggerGameOver() {
+        gameOver = true;
         spawnParticles(player.x + 16, player.y + 16, '#e74c3c');
-        player.x = cameraX + 64;
-        player.y = 100;
-        player.vy = 0;
-        player.vx = 0;
-        score = Math.max(0, score - 200);
+        document.getElementById('finalScoreVal').innerText = score;
+        document.getElementById('gameOverScreen').style.display = 'block';
     }
 
     function update() {
-        if (isPaused) return;
+        if (isPaused || gameOver || !gameStarted) return;
 
         if (player.dashCooldown > 0) player.dashCooldown--;
 
@@ -716,7 +779,7 @@ game_html = """
                 t.y -= 3;
             }
             if (player.x < t.x + t.width && player.x + player.width > t.x && player.y < t.y + t.height && player.y + player.height > t.y) {
-                resetPlayer();
+                triggerGameOver();
             }
         });
 
@@ -725,13 +788,13 @@ game_html = """
             let tipX = fb.x + Math.cos(fb.angle) * fb.length;
             let tipY = fb.y + Math.sin(fb.angle) * fb.length;
             if (Math.hypot((player.x + player.width/2) - tipX, (player.y + player.height/2) - tipY) < 18) {
-                resetPlayer();
+                triggerGameOver();
             }
         });
 
         hazards.forEach(h => {
             if (player.x + player.width > h.x && player.x < h.x + h.width && player.y + player.height > h.y && player.y < h.y + h.height) {
-                resetPlayer();
+                triggerGameOver();
             }
         });
 
@@ -757,7 +820,7 @@ game_html = """
                     coinsCollected += 1;
                     spawnParticles(enemy.x + 16, enemy.y + 16, '#f1c40f');
                 } else {
-                    resetPlayer();
+                    triggerGameOver();
                 }
             }
         });
@@ -781,7 +844,7 @@ game_html = """
             if (p.life <= 0) particles.splice(index, 1);
         });
 
-        if (player.y > canvas.height + 80) resetPlayer();
+        if (player.y > canvas.height + 80) triggerGameOver();
 
         if (platforms.length > 80 && platforms[0].x < cameraX - 1000) {
             platforms = platforms.filter(p => p.x + p.width > cameraX - 800);
@@ -1004,7 +1067,9 @@ game_html = """
             ctx.fillRect(p.x, p.y, 4, 4);
         });
 
-        drawPlayer(player.x, player.y, player.facing);
+        if (!gameOver) {
+            drawPlayer(player.x, player.y, player.facing);
+        }
 
         ctx.restore();
     }
