@@ -1,13 +1,13 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Super Mario Bros - World 1-1",
+    page_title="Infinite Classic Mario",
     page_icon="🍄",
     layout="centered"
 )
 
-st.title("🍄 Super Mario Bros - World 1-1")
-st.write("An authentic recreation featuring the complete World 1-1 layout, Goomba enemies, staircases, pipes, and the end castle!")
+st.title("🍄 Infinite Classic Mario")
+st.write("An endlessly generating recreation of the classic NES visual style. Dodge Goombas, jump over pits, and scale staircases forever!")
 
 game_html = """
 <!DOCTYPE html>
@@ -60,79 +60,114 @@ game_html = """
     let coinsCollected = 0;
     const keys = {};
 
-    let gameState = 'PLAYING';
     let cameraX = 0;
+    let lastGeneratedX = 0;
 
     const player = {
         x: 64,
-        y: 300,
+        y: 200,
         width: 32,
         height: 32,
         vx: 0,
         vy: 0,
-        speed: 3.2,
-        jumpPower: -10,
-        gravity: 0.5,
+        speed: 4.0,
+        jumpPower: -10.5,
+        gravity: 0.55,
         grounded: false,
         facing: 'right'
     };
 
-    // Authentic World 1-1 Layout Elements
-    let platforms = [
-        // Ground with gaps (Pit between x: 1344 and 1440)
-        { x: 0, y: 384, width: 1344, height: 48, type: 'ground' },
-        { x: 1440, y: 384, width: 650, height: 48, type: 'ground' },
-        { x: 2176, y: 384, width: 1500, height: 48, type: 'ground' },
+    let platforms = [];
+    let enemies = [];
+    let coins = [];
+    let decorations = [];
 
-        // Pipes
-        { x: 608, y: 320, width: 64, height: 64, type: 'pipe' },
-        { x: 912, y: 288, width: 64, height: 96, type: 'pipe' },
-        { x: 1136, y: 256, width: 64, height: 128, type: 'pipe' },
-        { x: 1632, y: 256, width: 64, height: 128, type: 'pipe' },
-        { x: 1984, y: 320, width: 64, height: 64, type: 'pipe' },
+    // --- PROCEDURAL WORLD GENERATION ---
 
-        // Question Blocks & Bricks
-        { x: 512, y: 256, width: 32, height: 32, type: 'question' },
-        { x: 672, y: 256, width: 32, height: 32, type: 'question' },
-        { x: 704, y: 256, width: 32, height: 32, type: 'brick' },
-        { x: 736, y: 256, width: 32, height: 32, type: 'question' },
-        { x: 768, y: 256, width: 32, height: 32, type: 'brick' },
-        { x: 800, y: 256, width: 32, height: 32, type: 'question' },
+    function addGround(startX, width) {
+        platforms.push({ x: startX, y: 384, width: width, height: 48, type: 'ground' });
+    }
 
-        // Elevated Block platform
-        { x: 352, y: 256, width: 96, height: 32, type: 'brick' },
+    function addPipe(x, height) {
+        platforms.push({ x: x, y: 384 - height, width: 64, height: height, type: 'pipe' });
+    }
 
-        // Staircases near end
-        // First pyramid stairs
-        { x: 2368, y: 352, width: 32, height: 32, type: 'brick' },
-        { x: 2400, y: 320, width: 32, height: 64, type: 'brick' },
-        { x: 2432, y: 288, width: 32, height: 96, type: 'brick' },
-        { x: 2464, y: 256, width: 32, height: 128, type: 'brick' },
+    function addQuestionBlock(x, y, hasCoin=true) {
+        platforms.push({ x: x, y: y, width: 32, height: 32, type: 'question' });
+        if (hasCoin) coins.push({ x: x + 16, y: y - 24, radius: 10, collected: false });
+    }
 
-        // Second pyramid stairs
-        { x: 2560, y: 256, width: 32, height: 128, type: 'brick' },
-        { x: 2592, y: 288, width: 32, height: 96, type: 'brick' },
-        { x: 2624, y: 320, width: 32, height: 64, type: 'brick' },
-        { x: 2656, y: 352, width: 32, height: 32, type: 'brick' },
+    function addBrick(x, y) {
+        platforms.push({ x: x, y: y, width: 32, height: 32, type: 'brick' });
+    }
 
-        // Flagpole Base block
-        { x: 2816, y: 352, width: 32, height: 32, type: 'block' }
-    ];
+    function addStaircase(startX, steps, ascend=true) {
+        for (let i = 0; i < steps; i++) {
+            let height = (ascend ? i + 1 : steps - i) * 32;
+            let stepX = startX + (i * 32);
+            platforms.push({ x: stepX, y: 384 - height, width: 32, height: height, type: 'brick' });
+        }
+    }
 
-    let enemies = [
-        { x: 700, y: 352, width: 32, height: 32, vx: -1, alive: true },
-        { x: 1200, y: 352, width: 32, height: 32, vx: -1, alive: true },
-        { x: 1750, y: 352, width: 32, height: 32, vx: -1, alive: true },
-        { x: 1820, y: 352, width: 32, height: 32, vx: -1, alive: true }
-    ];
+    function addGoomba(x, y) {
+        enemies.push({ x: x, y: y, width: 32, height: 32, vx: -1.5, alive: true });
+    }
 
-    let coins = [
-        { x: 512, y: 210, radius: 10, collected: false },
-        { x: 704, y: 210, radius: 10, collected: false },
-        { x: 736, y: 210, radius: 10, collected: false },
-        { x: 768, y: 210, radius: 10, collected: false }
-    ];
+    function generateChunk() {
+        // Base ground size for this chunk
+        let groundWidth = 800 + Math.random() * 600;
+        addGround(lastGeneratedX, groundWidth);
 
+        // Decorate sky and ground
+        decorations.push({ x: lastGeneratedX + Math.random() * 200, y: 60 + Math.random() * 40, type: 'cloud' });
+        decorations.push({ x: lastGeneratedX + 400 + Math.random() * 200, y: 60 + Math.random() * 40, type: 'cloud' });
+        decorations.push({ x: lastGeneratedX + Math.random() * 300, y: 352, type: 'bush' });
+
+        // Add Obstacles based on random pattern
+        let pattern = Math.floor(Math.random() * 4);
+        
+        if (pattern === 0) {
+            // Pattern 0: Pipes & Goombas
+            addPipe(lastGeneratedX + 300, 64);
+            addPipe(lastGeneratedX + 600, 96);
+            addGoomba(lastGeneratedX + 500, 352);
+            addGoomba(lastGeneratedX + 750, 352);
+        } else if (pattern === 1) {
+            // Pattern 1: Question Blocks & Floating Bricks
+            addBrick(lastGeneratedX + 200, 256);
+            addQuestionBlock(lastGeneratedX + 232, 256);
+            addBrick(lastGeneratedX + 264, 256);
+            addQuestionBlock(lastGeneratedX + 232, 160); // High block
+            addGoomba(lastGeneratedX + 300, 352);
+            addGoomba(lastGeneratedX + 350, 352);
+        } else if (pattern === 2) {
+            // Pattern 2: The Classic Block Staircase
+            addStaircase(lastGeneratedX + 300, 5, true);
+            // Gap then descend
+            addStaircase(lastGeneratedX + 524, 5, false);
+            addGoomba(lastGeneratedX + 700, 352);
+        } else if (pattern === 3) {
+            // Pattern 3: Harder Pipe Jumps
+            addPipe(lastGeneratedX + 200, 128);
+            addPipe(lastGeneratedX + 400, 128);
+            addGoomba(lastGeneratedX + 300, 352); // Trapped Goomba
+            addQuestionBlock(lastGeneratedX + 600, 256);
+        }
+
+        // Advance generator and add a pit (gap in ground)
+        lastGeneratedX += groundWidth;
+        
+        // Add a pit (gap) of varying size
+        let pitSize = 100 + Math.random() * 120;
+        lastGeneratedX += pitSize;
+    }
+
+    // Initialize first safe chunk
+    addGround(0, 1200);
+    lastGeneratedX = 1200;
+    generateChunk();
+
+    // --- INPUT HANDLING ---
     window.addEventListener("keydown", (e) => {
         keys[e.code] = true;
         if(["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) {
@@ -144,9 +179,9 @@ game_html = """
         keys[e.code] = false;
     });
 
+    // --- GAME LOOP ---
     function update() {
-        if (gameState !== 'PLAYING') return;
-
+        // Player Movement
         if (keys["ArrowLeft"]) {
             player.vx = -player.speed;
             player.facing = 'left';
@@ -158,13 +193,22 @@ game_html = """
         }
 
         player.x += player.vx;
+        
+        // Prevent walking backwards off camera
         if (player.x < cameraX + 8) player.x = cameraX + 8;
 
-        let targetCameraX = player.x - 200;
-        if (targetCameraX > cameraX && cameraX < 2400) {
+        // Infinite Camera Scroll
+        let targetCameraX = player.x - 250;
+        if (targetCameraX > cameraX) {
             cameraX = targetCameraX;
         }
 
+        // Generate more level ahead
+        if (player.x + canvas.width > lastGeneratedX - 800) {
+            generateChunk();
+        }
+
+        // Physics & Collision
         player.vy += player.gravity;
         player.y += player.vy;
         player.grounded = false;
@@ -174,7 +218,7 @@ game_html = """
                 player.x < platform.x + platform.width &&
                 player.x + player.width > platform.x &&
                 player.y + player.height >= platform.y &&
-                player.y + player.height - player.vy <= platform.y + 12 &&
+                player.y + player.height - player.vy <= platform.y + 16 && // Floor tolerance
                 player.vy >= 0
             ) {
                 player.y = platform.y - player.height;
@@ -183,36 +227,68 @@ game_html = """
             }
         });
 
+        // Jump
         if ((keys["ArrowUp"] || keys["Space"]) && player.grounded) {
             player.vy = player.jumpPower;
             player.grounded = false;
         }
 
-        // Enemy AI & Collision
+        // Enemy Logic
         enemies.forEach(enemy => {
             if (!enemy.alive) return;
+            
+            // Apply gravity to enemy
+            enemy.vy = (enemy.vy || 0) + player.gravity;
+            enemy.y += enemy.vy;
+            
+            // Enemy Floor Collision
+            let enemyGrounded = false;
+            platforms.forEach(platform => {
+                if (
+                    enemy.x < platform.x + platform.width &&
+                    enemy.x + enemy.width > platform.x &&
+                    enemy.y + enemy.height >= platform.y &&
+                    enemy.y + enemy.height - enemy.vy <= platform.y + 16 &&
+                    enemy.vy >= 0
+                ) {
+                    enemy.y = platform.y - enemy.height;
+                    enemy.vy = 0;
+                    enemyGrounded = true;
+                }
+            });
+
+            // Enemy Wall Collision (Pipes/Bricks)
+            platforms.forEach(platform => {
+                if (platform.type !== 'ground' && 
+                    enemy.y + enemy.height > platform.y && 
+                    enemy.y < platform.y + platform.height) {
+                    if (enemy.x < platform.x + platform.width && enemy.x + enemy.width > platform.x) {
+                        enemy.vx *= -1; // Turn around
+                        enemy.x += enemy.vx * 2;
+                    }
+                }
+            });
+
             enemy.x += enemy.vx;
 
-            // Simple patrol bounds
-            if (enemy.x < 200 || enemy.x > 2500) enemy.vx *= -1;
-
-            // Player collision check
+            // Player vs Enemy Collision
             if (
                 player.x < enemy.x + enemy.width &&
                 player.x + player.width > enemy.x &&
                 player.y < enemy.y + enemy.height &&
                 player.y + player.height > enemy.y
             ) {
-                if (player.vy > 0 && player.y + player.height - player.vy <= enemy.y + 10) {
-                    // Jumped on Goomba
+                // Stomp check
+                if (player.vy > 0 && player.y + player.height - player.vy <= enemy.y + 16) {
                     enemy.alive = false;
-                    player.vy = -7;
+                    player.vy = -8; // Bounce off enemy
                     score += 100;
                 } else {
-                    // Hit by Goomba
+                    // Damage - Reset Player (For infinite run, push back)
                     player.x = cameraX + 64;
-                    player.y = 300;
+                    player.y = 100;
                     player.vy = 0;
+                    score = Math.max(0, score - 200);
                 }
             }
         });
@@ -229,30 +305,39 @@ game_html = """
             }
         });
 
-        // Pit Fall Check
-        if (player.y > canvas.height) {
+        // Pit Fall Check (Death)
+        if (player.y > canvas.height + 100) {
             player.x = cameraX + 64;
-            player.y = 300;
+            player.y = 100; // Drop from sky
             player.vy = 0;
-            score = Math.max(0, score - 100);
+            score = Math.max(0, score - 500);
+        }
+
+        // Garbage Collection: Remove objects far behind the camera to prevent lag
+        if (platforms.length > 100 && platforms[0].x < cameraX - 1000) {
+            platforms = platforms.filter(p => p.x + p.width > cameraX - 800);
+            enemies = enemies.filter(e => e.x > cameraX - 800);
+            coins = coins.filter(c => c.x > cameraX - 800);
+            decorations = decorations.filter(d => d.x > cameraX - 800);
         }
     }
 
+    // --- RENDERING ---
     function drawPixelMario(x, y, facing) {
-        ctx.fillStyle = '#c84c0c'; // Red cap & shirt
+        ctx.fillStyle = '#c84c0c'; // Red
         ctx.fillRect(x + (facing === 'right' ? 8 : 4), y, 20, 8);
         ctx.fillRect(x + (facing === 'right' ? 16 : 0), y + 4, 16, 4);
         
-        ctx.fillStyle = '#f83800'; // Skin tone
+        ctx.fillStyle = '#f83800'; // Skin
         ctx.fillRect(x + (facing === 'right' ? 12 : 4), y + 8, 16, 10);
         
-        ctx.fillStyle = '#000000'; // Mustache
+        ctx.fillStyle = '#000000'; // Mustache/Eye
         ctx.fillRect(x + (facing === 'right' ? 16 : 4), y + 14, 12, 4);
 
-        ctx.fillStyle = '#0070ec'; // Overalls
+        ctx.fillStyle = '#0070ec'; // Blue Overalls
         ctx.fillRect(x + 6, y + 18, 20, 10);
 
-        ctx.fillStyle = '#8b4513'; // Shoes
+        ctx.fillStyle = '#8b4513'; // Boots
         ctx.fillRect(x + (facing === 'right' ? 18 : 2), y + 28, 12, 4);
     }
 
@@ -270,32 +355,29 @@ game_html = """
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         ctx.save();
-        ctx.translate(-cameraX, 0);
+        ctx.translate(Math.floor(-cameraX), 0);
 
-        // Clouds
-        ctx.fillStyle = "#ffffff";
-        let cloudPositions = [200, 600, 1000, 1400, 1800, 2200, 2600];
-        cloudPositions.forEach(cx => {
-            ctx.fillRect(cx, 80, 64, 16);
-            ctx.fillRect(cx + 16, 64, 32, 16);
+        // Draw Scenery (Clouds & Bushes)
+        decorations.forEach(dec => {
+            if (dec.type === 'cloud') {
+                ctx.fillStyle = "#ffffff";
+                ctx.fillRect(dec.x, dec.y, 64, 16);
+                ctx.fillRect(dec.x + 16, dec.y - 16, 32, 16);
+            } else if (dec.type === 'bush') {
+                ctx.fillStyle = "#00a800";
+                ctx.fillRect(dec.x, dec.y, 96, 32);
+                ctx.fillRect(dec.x + 16, dec.y - 16, 64, 16);
+            }
         });
 
-        // Bushes
-        ctx.fillStyle = "#00a800";
-        let bushPositions = [300, 900, 1500, 2000];
-        bushPositions.forEach(bx => {
-            ctx.fillRect(bx, 352, 96, 32);
-            ctx.fillRect(bx + 16, 336, 64, 16);
-        });
-
-        // Platforms, Bricks, Pipes
+        // Draw Level Elements
         platforms.forEach(platform => {
-            if (platform.x + platform.width >= cameraX && platform.x <= cameraX + canvas.width) {
+            if (platform.x + platform.width >= cameraX - 100 && platform.x <= cameraX + canvas.width + 100) {
                 if (platform.type === 'ground') {
                     ctx.fillStyle = '#c84c0c';
-                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height + 200); // Fill deep down
                     ctx.fillStyle = '#00a800';
-                    ctx.fillRect(platform.x, platform.y, platform.width, 8);
+                    ctx.fillRect(platform.x, platform.y, platform.width, 8); // Grass top
                 } else if (platform.type === 'brick') {
                     ctx.fillStyle = '#c84c0c';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
@@ -314,7 +396,7 @@ game_html = """
                 } else if (platform.type === 'pipe') {
                     ctx.fillStyle = '#00a800';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-                    ctx.fillRect(platform.x - 4, platform.y, platform.width + 8, 16);
+                    ctx.fillRect(platform.x - 4, platform.y, platform.width + 8, 16); // Pipe rim
                     ctx.strokeStyle = '#000000';
                     ctx.lineWidth = 2;
                     ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
@@ -323,23 +405,9 @@ game_html = """
             }
         });
 
-        // Draw Flagpole at World End (around x: 2750)
-        ctx.fillStyle = '#00a800';
-        ctx.fillRect(2748, 128, 8, 256); // Pole
-        ctx.fillStyle = '#fcbc3c';
-        ctx.beginPath();
-        ctx.arc(2752, 128, 8, 0, Math.PI * 2); // Finial ball
-        ctx.fill();
-
-        // Draw Castle at end (around x: 2850)
-        ctx.fillStyle = '#c84c0c';
-        ctx.fillRect(2850, 256, 128, 128);
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(2898, 320, 32, 64); // Door
-
-        // Coins
+        // Draw Coins
         coins.forEach(coin => {
-            if (!coin.collected) {
+            if (!coin.collected && coin.x >= cameraX - 50 && coin.x <= cameraX + canvas.width + 50) {
                 ctx.fillStyle = '#fcbc3c';
                 ctx.beginPath();
                 ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
@@ -350,19 +418,19 @@ game_html = """
             }
         });
 
-        // Enemies
+        // Draw Enemies
         enemies.forEach(enemy => {
-            if (enemy.alive) {
+            if (enemy.alive && enemy.x >= cameraX - 100 && enemy.x <= cameraX + canvas.width + 100) {
                 drawGoomba(enemy.x, enemy.y);
             }
         });
 
-        // Player
+        // Draw Player
         drawPixelMario(player.x, player.y, player.facing);
 
         ctx.restore();
 
-        // HUD Overlay
+        // Authentic HUD
         ctx.fillStyle = "#000000";
         ctx.fillRect(0, 0, canvas.width, 45);
 
@@ -371,11 +439,11 @@ game_html = """
         ctx.fillText("MARIO", 40, 28);
         ctx.fillText(String(score).padStart(6, '0'), 40, 44);
 
-        ctx.fillText("WORLD", 280, 28);
-        ctx.fillText("1-1", 296, 44);
+        ctx.fillText("COINS", 280, 28);
+        ctx.fillText("x" + String(coinsCollected).padStart(2, '0'), 296, 44);
 
-        ctx.fillText("TIME", 450, 28);
-        ctx.fillText("399", 466, 44);
+        ctx.fillText("DISTANCE", 550, 28);
+        ctx.fillText(Math.floor(cameraX / 10) + "m", 550, 44);
     }
 
     function loop() {
