@@ -1,13 +1,13 @@
 import streamlit as st
 
 st.set_page_config(
-    page_title="Next-Gen Realistic Platformer",
+    page_title="Classic Retro Mario Bros",
     page_icon="🍄",
     layout="centered"
 )
 
-st.title("🍄 Next-Gen Realistic Platformer")
-st.write("Featuring dynamic vector shading, lighting reflections, particle bursts, and infinite procedural landscapes.")
+st.title("🍄 Classic Retro Mario Bros")
+st.write("An authentic recreation of the classic NES 2D platformer with infinite side-scrolling levels.")
 
 game_html = """
 <!DOCTYPE html>
@@ -17,37 +17,37 @@ game_html = """
     <style>
         body {
             margin: 0;
-            background: #0a0a0c;
+            background: #000;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: 'Courier New', Courier, monospace;
             color: white;
         }
         .game-container {
             text-align: center;
         }
         canvas {
-            border: 4px solid #222;
-            background: linear-gradient(to bottom, #1a2a6c, #b21f1f, #fdbb2d);
-            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
-            border-radius: 8px;
+            border: 4px solid #fff;
+            background: #5c94fc; /* Classic NES Mario Blue Sky */
+            box-shadow: 0 0 25px rgba(92, 148, 252, 0.4);
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
         }
         .instructions {
-            margin-top: 12px;
+            margin-top: 10px;
             font-size: 14px;
-            color: #bbb;
-            letter-spacing: 0.5px;
+            color: #ddd;
         }
     </style>
 </head>
 <body>
 
 <div class="game-container">
-    <canvas id="gameCanvas" width="850" height="480"></canvas>
+    <canvas id="gameCanvas" width="768" height="432"></canvas>
     <div class="instructions">
-        Controls: <strong>Arrow Left / Right</strong> to Run | <strong>Arrow Up</strong> or <strong>Spacebar</strong> to Jump
+        Controls: <strong>Arrow Left / Right</strong> to Walk | <strong>Arrow Up</strong> or <strong>Spacebar</strong> to Jump
     </div>
 </div>
 
@@ -55,8 +55,12 @@ game_html = """
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
+    // Disable anti-aliasing for retro pixelated look
+    ctx.imageSmoothingEnabled = false;
+
     let score = 0;
-    let distanceTraveled = 0;
+    let coinsCollected = 0;
+    let timeRemaining = 400;
     const keys = {};
 
     let gameState = 'ENTERING';
@@ -64,37 +68,37 @@ game_html = """
     let cameraX = 0;
 
     const player = {
-        x: 100,
-        y: 350,
-        width: 34,
-        height: 52,
+        x: 64,
+        y: 300,
+        width: 32,
+        height: 32,
         vx: 0,
         vy: 0,
-        speed: 5.5,
-        jumpPower: -12.5,
-        gravity: 0.58,
+        speed: 3.5,
+        jumpPower: -10.5,
+        gravity: 0.5,
         grounded: false,
-        facing: 'right',
-        animFrame: 0
+        facing: 'right'
     };
 
+    // Classic NES Level Layout (Ground + Bricks + Question Blocks + Pipes)
     let platforms = [
-        { x: 0, y: 410, width: 1500, height: 70, type: 'ground' },
-        { x: 350, y: 290, width: 160, height: 26, type: 'brick' },
-        { x: 650, y: 200, width: 180, height: 26, type: 'brick' },
-        { x: 950, y: 270, width: 150, height: 26, type: 'brick' }
+        { x: 0, y: 384, width: 2500, height: 48, type: 'ground' },
+        { x: 256, y: 256, width: 32, height: 32, type: 'question' },
+        { x: 352, y: 256, width: 96, height: 32, type: 'brick' },
+        { x: 384, y: 256, width: 32, height: 32, type: 'question' },
+        { x: 608, y: 320, width: 64, height: 64, type: 'pipe' }, // Green Pipe
+        { x: 800, y: 256, width: 128, height: 32, type: 'brick' },
+        { x: 1050, y: 288, width: 64, height: 96, type: 'pipe' }
     ];
 
     let coins = [
-        { x: 430, y: 240, radius: 13, collected: false, angle: 0 },
-        { x: 740, y: 150, radius: 13, collected: false, angle: 0 },
-        { x: 1025, y: 220, radius: 13, collected: false, angle: 0 }
+        { x: 384, y: 210, radius: 10, collected: false, bounce: 0 },
+        { x: 832, y: 210, radius: 10, collected: false, bounce: 0 },
+        { x: 864, y: 210, radius: 10, collected: false, bounce: 0 }
     ];
 
-    // Particle system array for realistic effects (dust, coin sparkles)
-    let particles = [];
-
-    let lastGeneratedX = 1500;
+    let lastGeneratedX = 2500;
 
     window.addEventListener("keydown", (e) => {
         keys[e.code] = true;
@@ -107,37 +111,22 @@ game_html = """
         keys[e.code] = false;
     });
 
-    function spawnParticles(x, y, color, count = 10) {
-        for (let i = 0; i < count; i++) {
-            particles.push({
-                x: x,
-                y: y,
-                vx: (Math.random() - 0.5) * 6,
-                vy: (Math.random() - 0.5) * 6 - 2,
-                alpha: 1.0,
-                color: color,
-                size: Math.random() * 4 + 2
-            });
-        }
-    }
-
-    function generateInfiniteWorld() {
+    // Infinite procedural retro world generation
+    function generateRetroWorld() {
         if (player.x + canvas.width > lastGeneratedX - 500) {
             let chunkX = lastGeneratedX;
-            let groundWidth = 1000 + Math.random() * 400;
+            let groundWidth = 1200;
             
-            platforms.push({ x: chunkX, y: 410, width: groundWidth, height: 70, type: 'ground' });
+            platforms.push({ x: chunkX, y: 384, width: groundWidth, height: 48, type: 'ground' });
 
-            let currentX = chunkX + 200;
-            while (currentX < chunkX + groundWidth - 200) {
-                let pWidth = 130 + Math.random() * 70;
-                let pY = 180 + Math.random() * 160;
-                
-                platforms.push({ x: currentX, y: pY, width: pWidth, height: 26, type: 'brick' });
-                coins.push({ x: currentX + pWidth / 2, y: pY - 45, radius: 13, collected: false, angle: Math.random() });
-                
-                currentX += pWidth + 120 + Math.random() * 80;
-            }
+            // Add pipes and block structures ahead
+            platforms.push({ x: chunkX + 300, y: 320, width: 64, height: 64, type: 'pipe' });
+            platforms.push({ x: chunkX + 600, y: 256, width: 160, height: 32, type: 'brick' });
+            
+            coins.push({ x: chunkX + 650, y: 210, radius: 10, collected: false, bounce: 0 });
+            coins.push({ x: chunkX + 682, y: 210, radius: 10, collected: false, bounce: 0 });
+
+            platforms.push({ x: chunkX + 900, y: 288, width: 64, height: 96, type: 'pipe' });
 
             lastGeneratedX += groundWidth;
         }
@@ -145,44 +134,37 @@ game_html = """
 
     function update() {
         if (gameState === 'ENTERING') {
-            entryTimer += 0.025;
-            player.y = 410 - 52 - Math.sin(entryTimer * Math.PI) * 90;
-            player.x = 100 + (entryTimer * 12);
+            entryTimer += 0.03;
+            player.y = 384 - 32 - Math.sin(entryTimer * Math.PI) * 60;
+            player.x = 64 + (entryTimer * 10);
             if (entryTimer >= 1) {
                 gameState = 'PLAYING';
-                player.y = 410 - 52;
-                spawnParticles(player.x + 17, player.y + 52, '#2ecc71', 15);
+                player.y = 384 - 32;
             }
             return;
         }
 
-        // Horizontal Movement & Animation ticker
+        // Horizontal Movement
         if (keys["ArrowLeft"]) {
             player.vx = -player.speed;
             player.facing = 'left';
-            player.animFrame += 0.2;
         } else if (keys["ArrowRight"]) {
             player.vx = player.speed;
             player.facing = 'right';
-            player.animFrame += 0.2;
         } else {
             player.vx = 0;
-            player.animFrame = 0;
         }
 
         player.x += player.vx;
-        if (player.x < cameraX + 15) player.x = cameraX + 15;
+        if (player.x < cameraX + 8) player.x = cameraX + 8;
 
-        if (player.x > distanceTraveled) {
-            distanceTraveled = Math.floor(player.x);
-        }
-
-        let targetCameraX = player.x - 300;
+        // Classic Camera scroll
+        let targetCameraX = player.x - 200;
         if (targetCameraX > cameraX) {
-            cameraX += (targetCameraX - cameraX) * 0.12;
+            cameraX = targetCameraX;
         }
 
-        // Physics & Gravity
+        // Gravity & Physics
         player.vy += player.gravity;
         player.y += player.vy;
         player.grounded = false;
@@ -195,9 +177,6 @@ game_html = """
                 player.y + player.height - player.vy <= platform.y + 10 &&
                 player.vy >= 0
             ) {
-                if (!player.grounded && player.vy > 4) {
-                    spawnParticles(player.x + 17, platform.y, '#7f8c8d', 6); // Landing dust
-                }
                 player.y = platform.y - player.height;
                 player.vy = 0;
                 player.grounded = true;
@@ -207,95 +186,55 @@ game_html = """
         if ((keys["ArrowUp"] || keys["Space"]) && player.grounded) {
             player.vy = player.jumpPower;
             player.grounded = false;
-            spawnParticles(player.x + 17, player.y + player.height, '#bdc3c7', 8);
         }
 
-        // Coin Collection & Sparkle Burst
+        // Coin Collection
         coins.forEach(coin => {
-            coin.angle += 0.06;
             if (!coin.collected) {
                 let dist = Math.hypot(coin.x - (player.x + player.width / 2), coin.y - (player.y + player.height / 2));
                 if (dist < coin.radius + player.width / 3) {
                     coin.collected = true;
-                    score += 100;
-                    spawnParticles(coin.x, coin.y, '#f1c40f', 16);
+                    score += 200;
+                    coinsCollected += 1;
                 }
             }
         });
 
-        // Particle updates
-        particles.forEach((p, index) => {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.alpha -= 0.03;
-            if (p.alpha <= 0) particles.splice(index, 1);
-        });
+        generateRetroWorld();
 
-        generateInfiniteWorld();
-
+        // Pit Fall Check
         if (player.y > canvas.height) {
-            player.x = cameraX + 80;
-            player.y = 350;
+            player.x = cameraX + 64;
+            player.y = 300;
             player.vy = 0;
-            score = Math.max(0, score - 200);
+            score = Math.max(0, score - 100);
             gameState = 'ENTERING';
             entryTimer = 0;
-            spawnParticles(player.x, player.y, '#e74c3c', 20);
         }
     }
 
-    function drawRealisticPlayer(x, y, w, h, facing, frame) {
-        ctx.save();
+    function drawPixelMario(x, y, facing) {
+        // Classic NES Mario 8-bit / 16-bit pixel block representation
+        ctx.fillStyle = '#c84c0c'; // Red cap & shirt
+        // Hat
+        ctx.fillRect(x + (facing === 'right' ? 8 : 4), y, 20, 8);
+        ctx.fillRect(x + (facing === 'right' ? 16 : 0), y + 4, 16, 4);
         
-        // Soft ground shadow with dynamic scaling based on jump height
-        let shadowWidth = Math.max(10, w - Math.abs(player.vy) * 2);
-        ctx.fillStyle = "rgba(0,0,0,0.4)";
-        ctx.beginPath();
-        ctx.ellipse(x + w/2, 410, shadowWidth/2, 5, 0, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Bounce effect simulation using animFrame
-        let bounce = player.grounded ? Math.sin(frame) * 2 : 0;
-        let drawY = y + bounce;
-
-        // Overalls (Multi-stop smooth shading)
-        let overallsGrad = ctx.createLinearGradient(x, drawY + h/2, x + w, drawY + h);
-        overallsGrad.addColorStop(0, '#154360');
-        overallsGrad.addColorStop(0.5, '#1b4f72');
-        overallsGrad.addColorStop(1, '#2471a3');
-        ctx.fillStyle = overallsGrad;
-        ctx.fillRect(x + 5, drawY + h/2, w - 10, h/2 - 2);
-
-        // Straps & Buttons
-        ctx.fillStyle = '#f1c40f'; // Gold buttons
-        ctx.fillRect(x + 8, drawY + h/2 + 4, 4, 4);
-        ctx.fillRect(x + w - 12, drawY + h/2 + 4, 4, 4);
-
-        // Shirt
-        let shirtGrad = ctx.createLinearGradient(x, drawY + h/3, x + w, drawY + h/2);
-        shirtGrad.addColorStop(0, '#922b21');
-        shirtGrad.addColorStop(1, '#e74c3c');
-        ctx.fillStyle = shirtGrad;
-        ctx.fillRect(x + 7, drawY + h/3, w - 14, h/3);
-
-        // Head / Cap with realistic curvature highlight
-        let capGrad = ctx.createLinearGradient(x, drawY, x, drawY + 14);
-        capGrad.addColorStop(0, '#f1948a');
-        capGrad.addColorStop(1, '#c0392b');
-        ctx.fillStyle = capGrad;
-        ctx.fillRect(x + (facing === 'right' ? 8 : 2), drawY, w - 8, 13);
+        // Face/Skin
+        ctx.fillStyle = '#f83800'; // Face skin tone approximation
+        ctx.fillRect(x + (facing === 'right' ? 12 : 4), y + 8, 16, 10);
         
-        // Cap Visor
-        ctx.fillStyle = '#922b21';
-        ctx.fillRect(x + (facing === 'right' ? w - 10 : 2), drawY + 5, 12, 4);
+        // Mustache / Eyes
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(x + (facing === 'right' ? 16 : 4), y + 14, 12, 4);
 
-        // Face & Detailed Moustache
-        ctx.fillStyle = '#f5b041';
-        ctx.fillRect(x + (facing === 'right' ? 13 : 5), drawY + 13, 14, 11);
-        ctx.fillStyle = '#2c3e50';
-        ctx.fillRect(x + (facing === 'right' ? 14 : 4), drawY + 20, 14, 5);
+        // Overalls (Blue)
+        ctx.fillStyle = '#0070ec';
+        ctx.fillRect(x + 6, y + 18, 20, 10);
 
-        ctx.restore();
+        // Shoes (Brown)
+        ctx.fillStyle = '#8b4513';
+        ctx.fillRect(x + (facing === 'right' ? 18 : 2), y + 28, 12, 4);
     }
 
     function draw() {
@@ -304,103 +243,97 @@ game_html = """
         ctx.save();
         ctx.translate(-cameraX, 0);
 
-        // Dynamic Parallax Background Mountains / Hills
-        ctx.fillStyle = "rgba(44, 62, 80, 0.25)";
-        let hillOffset = cameraX * 0.2;
-        for (let i = -1; i < 6; i++) {
-            let hx = i * 500 - (hillOffset % 500);
-            ctx.beginPath();
-            ctx.moveTo(hx, 410);
-            ctx.lineTo(hx + 250, 220);
-            ctx.lineTo(hx + 500, 410);
-            ctx.fill();
+        // Retro Pixel Clouds & Bushes Background Elements
+        ctx.fillStyle = "#ffffff";
+        for (let i = -1; i < 10; i++) {
+            let cx = i * 400 + 100;
+            // Pixel Cloud 1
+            ctx.fillRect(cx, 80, 64, 16);
+            ctx.fillRect(cx + 16, 64, 32, 16);
         }
 
-        // Platforms with High-End Textures & Top Lighting Bevels
+        // Retro Green Bushes
+        ctx.fillStyle = "#00a800";
+        for (let i = -1; i < 10; i++) {
+            let bx = i * 450 + 250;
+            ctx.fillRect(bx, 352, 96, 32);
+            ctx.fillRect(bx + 16, 336, 64, 16);
+        }
+
+        // Draw Platforms / Blocks / Pipes
         platforms.forEach(platform => {
             if (platform.x + platform.width >= cameraX && platform.x <= cameraX + canvas.width) {
                 if (platform.type === 'ground') {
-                    let groundGrad = ctx.createLinearGradient(0, platform.y, 0, platform.y + platform.height);
-                    groundGrad.addColorStop(0, '#1e8449'); // Vibrant Moss
-                    groundGrad.addColorStop(0.1, '#27ae60');
-                    groundGrad.addColorStop(0.2, '#6e2c00'); // Rich Soil
-                    groundGrad.addColorStop(1, '#2b1b0e');
-                    ctx.fillStyle = groundGrad;
+                    // Classic Brown/Orange NES Brick Ground Pattern
+                    ctx.fillStyle = '#c84c0c';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-                    
-                    // Glossy top neon highlight border
-                    ctx.fillStyle = '#58d68d';
-                    ctx.fillRect(platform.x, platform.y, platform.width, 4);
-                } else {
-                    let brickGrad = ctx.createLinearGradient(platform.x, platform.y, platform.x, platform.y + platform.height);
-                    brickGrad.addColorStop(0, '#dc7633');
-                    brickGrad.addColorStop(1, '#935116');
-                    ctx.fillStyle = brickGrad;
+                    // Top green grass border line
+                    ctx.fillStyle = '#00a800';
+                    ctx.fillRect(platform.x, platform.y, platform.width, 8);
+                } else if (platform.type === 'brick') {
+                    // NES Brick Block
+                    ctx.fillStyle = '#c84c0c';
                     ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
-
-                    // Beveled Edge Light
-                    ctx.fillStyle = '#edbb99';
-                    ctx.fillRect(platform.x, platform.y, platform.width, 3);
-                    
-                    ctx.strokeStyle = '#512e5f';
+                    ctx.strokeStyle = '#000000';
                     ctx.lineWidth = 2;
                     ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+                } else if (platform.type === 'question') {
+                    // Question Block (?)
+                    ctx.fillStyle = '#fcbc3c';
+                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+                    
+                    ctx.fillStyle = '#000000';
+                    ctx.font = "bold 18px monospace";
+                    ctx.fillText("?", platform.x + 10, platform.y + 23);
+                } else if (platform.type === 'pipe') {
+                    // Classic Green Mario Pipe
+                    ctx.fillStyle = '#00a800';
+                    ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                    // Pipe rim
+                    ctx.fillRect(platform.x - 4, platform.y, platform.width + 8, 16);
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(platform.x, platform.y, platform.width, platform.height);
+                    ctx.strokeRect(platform.x - 4, platform.y, platform.width + 8, 16);
                 }
             }
         });
 
-        // Glowing 3D Coins
+        // Draw Coins
         coins.forEach(coin => {
-            if (!coin.collected && coin.x >= cameraX - 50 && coin.x <= cameraX + canvas.width + 50) {
-                ctx.save();
-                ctx.translate(coin.x, coin.y);
-                let scaleX = Math.cos(coin.angle);
-                ctx.scale(scaleX, 1);
-
-                let coinGrad = ctx.createRadialGradient(0, 0, 1, 0, 0, coin.radius);
-                coinGrad.addColorStop(0, '#fef9e7');
-                coinGrad.addColorStop(0.5, '#f1c40f');
-                coinGrad.addColorStop(1, '#b7950b');
-
-                ctx.fillStyle = coinGrad;
+            if (!coin.collected && coin.x >= cameraX - 30 && coin.x <= cameraX + canvas.width + 30) {
+                ctx.fillStyle = '#fcbc3c';
                 ctx.beginPath();
-                ctx.arc(0, 0, coin.radius, 0, Math.PI * 2);
+                ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
                 ctx.fill();
-                
-                ctx.strokeStyle = '#7d6608';
+                ctx.strokeStyle = '#000000';
                 ctx.lineWidth = 2;
                 ctx.stroke();
-
-                ctx.restore();
             }
         });
 
-        // Render Particle Effects
-        particles.forEach(p => {
-            ctx.save();
-            ctx.globalAlpha = p.alpha;
-            ctx.fillStyle = p.color;
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-        });
-
-        // Draw Player Character
-        drawRealisticPlayer(player.x, player.y, player.width, player.height, player.facing, player.animFrame);
+        // Draw Player
+        drawPixelMario(player.x, player.y, player.facing);
 
         ctx.restore();
 
-        // High-Tech Modern HUD Glassmorphism Display
-        ctx.fillStyle = "rgba(15, 15, 20, 0.75)";
-        ctx.fillRect(20, 20, 310, 50);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(20, 20, 310, 50);
+        // Classic NES HUD Top Banner Overlay
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(0, 0, canvas.width, 45);
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 15px 'Segoe UI'";
-        ctx.fillText("SCORE: " + score + "   |   DIST: " + distanceTraveled + "m", 35, 51);
+        ctx.font = "bold 16px 'Courier New'";
+        ctx.fillText("MARIO", 40, 28);
+        ctx.fillText(String(score).padStart(6, '0'), 40, 44);
+
+        ctx.fillText("WORLD", 280, 28);
+        ctx.fillText("1-1", 296, 44);
+
+        ctx.fillText("TIME", 450, 28);
+        ctx.fillText("399", 466, 44);
     }
 
     function loop() {
@@ -416,4 +349,4 @@ game_html = """
 </html>
 """
 
-st.components.v1.html(game_html, height=530, scrolling=False)
+st.components.v1.html(game_html, height=480, scrolling=False)
