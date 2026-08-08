@@ -35,9 +35,123 @@ game_html = """<!DOCTYPE html>
         .achievement-item { background: #1a1a2e; border: 2px solid #333; padding: 8px; margin-bottom: 6px; border-radius: 4px; font-size: 11px; }
         .achievement-unlocked { border-color: #f1c40f; background: #2d2d1a; }
         .world-indicator { position: absolute; top: 10px; left: 10px; font-size: 14px; font-weight: bold; color: #f1c40f; text-shadow: 2px 2px #000; z-index: 15; }
+        
+        /* Loading Screen Styles */
+        #loadingScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #050508;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.8s ease-out;
+        }
+        #loadingScreen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+        .loading-title {
+            font-size: 32px;
+            color: #ffcc00;
+            text-shadow: 3px 3px #ff0000, -2px -2px #2980b9;
+            margin-bottom: 40px;
+            animation: loadingPulse 1.5s infinite;
+        }
+        @keyframes loadingPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        .loading-bar-container {
+            width: 400px;
+            height: 30px;
+            background: #1a1a2e;
+            border: 3px solid #f1c40f;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(241, 196, 15, 0.6);
+            position: relative;
+        }
+        .loading-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #e74c3c, #f1c40f, #2ecc71, #3498db, #e74c3c);
+            background-size: 200% 100%;
+            animation: loadingGradient 2s linear infinite;
+            transition: width 0.3s ease;
+        }
+        @keyframes loadingGradient {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
+        }
+        .loading-text {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #3498db;
+            letter-spacing: 2px;
+        }
+        .loading-dots {
+            display: inline-block;
+            animation: dotsBlink 1.5s infinite;
+        }
+        @keyframes dotsBlink {
+            0%, 20% { opacity: 0; }
+            50% { opacity: 1; }
+            80%, 100% { opacity: 0; }
+        }
+        .pixel-mario {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 30px;
+            animation: marioJump 1s infinite;
+        }
+        @keyframes marioJump {
+            0%, 100% { transform: translateY(0) scale(1); }
+            50% { transform: translateY(-20px) scale(1.1); }
+        }
+        .loading-tips {
+            margin-top: 30px;
+            font-size: 11px;
+            color: #7f8c8d;
+            max-width: 400px;
+            line-height: 1.6;
+        }
+        .loading-tips span {
+            color: #f1c40f;
+        }
     </style>
 </head>
 <body>
+
+<!-- Loading Screen -->
+<div id="loadingScreen">
+    <div class="loading-title">🍄 SUPER MARIO 🍄</div>
+    <div style="font-size: 14px; color: #3498db; margin-bottom: 30px; letter-spacing: 3px;">INFINITE DELUXE ULTIMATE EDITION</div>
+    
+    <!-- Pixel Art Mario (CSS) -->
+    <div class="pixel-mario" style="position: relative; width: 64px; height: 64px; margin: 0 auto 30px;">
+        <div style="position: absolute; top: 0; left: 16px; width: 32px; height: 16px; background: #e74c3c;"></div>
+        <div style="position: absolute; top: 16px; left: 12px; width: 40px; height: 16px; background: #f1c40f;"></div>
+        <div style="position: absolute; top: 32px; left: 8px; width: 48px; height: 20px; background: #e74c3c;"></div>
+        <div style="position: absolute; top: 52px; left: 12px; width: 16px; height: 12px; background: #2980b9;"></div>
+        <div style="position: absolute; top: 52px; left: 36px; width: 16px; height: 12px; background: #2980b9;"></div>
+    </div>
+    
+    <div class="loading-bar-container">
+        <div class="loading-bar" id="loadingBar"></div>
+    </div>
+    <div class="loading-text">LOADING <span class="loading-dots">...</span></div>
+    <div class="loading-tips">
+        💡 <span>TIP:</span> Press Z to shoot fireballs (when powered up)!<br>
+        💡 <span>TIP:</span> Build combos for 10x score multiplier!<br>
+        💡 <span>TIP:</span> Defeat bosses to advance worlds!
+    </div>
+</div>
+
 <div class="game-wrapper">
     <canvas id="gameCanvas" width="768" height="432"></canvas>
     <div class="world-indicator" id="worldDisplay">🌍 WORLD 1</div>
@@ -160,6 +274,56 @@ game_html = """<!DOCTYPE html>
 </div>
 
 <script>
+    // Loading Screen Logic
+    let loadingProgress = 0;
+    const loadingBar = document.getElementById('loadingBar');
+    const loadingScreen = document.getElementById('loadingScreen');
+    const loadingTips = [
+        "💡 <span>TIP:</span> Press Z to shoot fireballs!",
+        "💡 <span>TIP:</span> Build combos for 10x multiplier!",
+        "💡 <span>TIP:</span> Defeat bosses to advance worlds!",
+        "💡 <span>TIP:</span> Collect coins to unlock skins!",
+        "💡 <span>TIP:</span> Mario can dash with X key!",
+        "💡 <span>TIP:</span> Luigi has super high jumps!",
+        "💡 <span>TIP:</span> Peach can hover in mid-air!",
+        "💡 <span>TIP:</span> Yoshi can double jump!"
+    ];
+    let currentTipIndex = 0;
+
+    function updateLoading() {
+        loadingProgress += Math.random() * 15 + 5;
+        if (loadingProgress > 100) loadingProgress = 100;
+        loadingBar.style.width = loadingProgress + '%';
+        
+        // Change tips during loading
+        if (loadingProgress > 25 && currentTipIndex === 0) {
+            document.querySelector('.loading-tips').innerHTML = loadingTips[1];
+            currentTipIndex = 1;
+        } else if (loadingProgress > 50 && currentTipIndex === 1) {
+            document.querySelector('.loading-tips').innerHTML = loadingTips[2];
+            currentTipIndex = 2;
+        } else if (loadingProgress > 75 && currentTipIndex === 2) {
+            document.querySelector('.loading-tips').innerHTML = loadingTips[3];
+            currentTipIndex = 3;
+        }
+        
+        if (loadingProgress < 100) {
+            setTimeout(updateLoading, 200 + Math.random() * 300);
+        } else {
+            setTimeout(() => {
+                loadingScreen.classList.add('hidden');
+                setTimeout(() => {
+                    loadingScreen.style.display = 'none';
+                }, 800);
+            }, 500);
+        }
+    }
+
+    // Start loading animation when page loads
+    window.addEventListener('load', () => {
+        setTimeout(updateLoading, 500);
+    });
+
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
     ctx.imageSmoothingEnabled = false;
